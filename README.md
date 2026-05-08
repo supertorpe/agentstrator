@@ -1,6 +1,7 @@
 # Agentstrator
 
-Agentstrator runs [OpenCode](https://opencode.ai) as a **sidecar container**, capable of attaching to and controlling pre-existing development containers without modifying them. It also works standalone, running OpenCode directly without attaching to any dev container — for working on local projects, orchestrating workflows, or using agent packages independently. No need to install OpenCode, SDKs, or agent packages inside your project images — the agent lives alongside them, not inside them.
+Agentstrator runs [OpenCode](https://opencode.ai) as a **sidecar container**, capable of attaching to and controlling pre-existing development containers without needing to modify their images to add AI agents, skills, commands, or packages.
+It also works standalone, running OpenCode directly without attaching to any dev container — for working on local projects, orchestrating workflows, or using agent packages independently. No need to install OpenCode, SDKs, or agent packages inside your project images — the agent lives alongside them, not inside them.
 
 ## How it works
 
