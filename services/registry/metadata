@@ -1,0 +1,2 @@
+NAME=Registry
+DESCRIPTION=Agent registry for discovering and routing to available AI agents

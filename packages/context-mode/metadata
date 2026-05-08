@@ -1,0 +1,3 @@
+NAME=context-mode
+DESCRIPTION=Context window optimization
+SOURCE=https://github.com/mksglu/context-mode

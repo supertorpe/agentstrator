@@ -1,0 +1,6 @@
+NAME=agentmemory
+DESCRIPTION=Persistent memory for AI coding agents
+SOURCE=https://github.com/rohitg00/agentmemory
+PORT=3114
+RUN=setsid /usr/local/bin/agentmemory >/dev/null 2>&1 & setsid socat TCP-LISTEN:3114,fork,bind=0.0.0.0 TCP:127.0.0.1:3113 >/dev/null 2>&1 &
+

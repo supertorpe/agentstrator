@@ -1,0 +1,4 @@
+NAME=agent-browser
+DESCRIPTION=Browser automation
+SOURCE=https://github.com/vercel-labs/agent-browser
+ENV=AGENT_BROWSER_SKILLS_DIR=/usr/local/lib/node_modules/agent-browser/skill-data

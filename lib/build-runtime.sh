@@ -1,0 +1,368 @@
+#!/bin/bash
+#
+# lib/build-runtime.sh — Build progressive runtime image from installed packages
+#
+# Reads config.json to determine which packages are installed, then builds
+# a single runtime image that includes all of them.
+# Two layers: agentstrator-base (basic tools) + agentstrator-core (opencode).
+# agentstrator-base is never rebuilt with --no-cache; agentstrator-core is.
+
+AGENTSTRATOR_INSTALL_DIR="${AGENTSTRATOR_INSTALL_DIR:-$HOME/.agentstrator}"
+CONFIG_FILE="$AGENTSTRATOR_INSTALL_DIR/config.json"
+RUNTIME_IMAGE="agentstrator:runtime"
+
+get_build_dirs() {
+    if [ -d "$AGENTSTRATOR_INSTALL_DIR/packages" ]; then
+        PACKAGES_DIR="$AGENTSTRATOR_INSTALL_DIR/packages"
+    else
+        local script_dir
+        script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        PACKAGES_DIR="$script_dir/../packages"
+    fi
+    CORE_DIR="$AGENTSTRATOR_INSTALL_DIR/core"
+}
+
+usage() {
+    echo "Usage: $0 [command]"
+    echo "Commands:"
+    echo "  build          Build the runtime image"
+    echo "  generate       Generate Dockerfile (don't build)"
+    echo "  status         Show build status"
+}
+
+# Check if jq is available
+if ! command -v jq >/dev/null 2>&1; then
+    echo "ERROR: jq is required. Install it first."
+    exit 1
+fi
+
+# Get list of installed packages from config.json
+get_installed_packages() {
+    jq -r 'to_entries[] | select(.value.type == "package" and .value.installed == true) | .key' "$CONFIG_FILE" 2>/dev/null || true
+}
+
+# Get list of installed services from config.json
+get_installed_services() {
+    jq -r 'to_entries[] | select(.value.type == "service" and .value.installed == true) | .key' "$CONFIG_FILE" 2>/dev/null || true
+}
+
+# Check if a package has a Dockerfile
+has_dockerfile() {
+    local pkg="$1"
+    [ -f "$PACKAGES_DIR/$pkg/Dockerfile" ]
+}
+
+
+# Function to find minimal COPY commands from a list of files
+# Groups files by common prefixes to minimize the number of COPY commands
+generate_minimal_copy_commands() {
+    local pkg="$1"
+    local wanted_file="$2"
+
+    # 1. Load and Normalize Wanted Paths
+    if [[ ! -f "$wanted_file" ]]; then return 1; fi
+    mapfile -t want_paths < <(
+        grep -vE '(/tmp/|/root/\.npm|/root/\.node-gyp|before-files|after-files|new-files|before-symlinks)' "$wanted_file" \
+        | sed 's|/*$||' | sort -u
+    )
+    [ ${#want_paths[@]} -eq 0 ] && return
+
+    declare -A wanted_counts disk_counts covered
+
+    # 2. Get Global Manifest from Docker (The "Truth")
+    local global_manifest
+    global_manifest=$(mktemp)
+
+    docker run --rm "agentstrator-$pkg" \
+        find / -type f 2>/dev/null \
+        | grep -vE '(/tmp/|/root/\.npm|/root/\.node-gyp|before-files|after-files|new-files|before-symlinks)' \
+        > "$global_manifest"
+
+    # 3. Map Wanted Tree
+    for p in "${want_paths[@]}"; do
+        local curr="${p%/*}"
+        while [[ -n "$curr" && "$curr" != "/" ]]; do
+            ((wanted_counts["$curr"]++))
+            curr="${curr%/*}"
+        done
+    done
+
+    # 4. Map Disk Tree
+    while IFS= read -r f; do
+        local curr="${f%/*}"
+        while [[ -n "$curr" && "$curr" != "/" ]]; do
+            ((disk_counts["$curr"]++))
+            curr="${curr%/*}"
+        done
+    done < "$global_manifest"
+    rm -f "$global_manifest"
+
+    # 5. Consolidation (Deepest paths first)
+    mapfile -t sorted_paths < <(
+        for p in "${want_paths[@]}"; do
+            # Count slashes using bash instead of external tools
+            local tmp="${p//[^\/]}"
+            echo "${#tmp} $p"
+        done | sort -rn | cut -d' ' -f2-
+    )
+
+    for p in "${sorted_paths[@]}"; do
+        # Skip if already covered by a parent
+        for c in "${!covered[@]}"; do
+            if [[ "$p" == "$c"* ]]; then
+                continue 2
+            fi
+        done
+
+        local best_match="$p"
+        local temp_parent="${p%/*}"
+
+        while [[ "$temp_parent" != "/" && "$temp_parent" != "" ]]; do
+            # Strict System Blacklist
+            case "$temp_parent" in
+                "/usr"|"/usr/local"|"/usr/local/lib"|"/lib"|"/bin"|"/sbin") break ;;
+            esac
+
+            local w_cnt=${wanted_counts["$temp_parent"]:-0}
+            local d_cnt=${disk_counts["$temp_parent"]:-0}
+
+            if [[ "$w_cnt" -gt 0 && "$w_cnt" -eq "$d_cnt" ]]; then
+                best_match="$temp_parent"
+                temp_parent="${temp_parent%/*}"
+            else
+                break
+            fi
+        done
+
+        # Mark as covered
+        covered["$best_match"]=1
+
+        # Safe quoted output
+        printf 'COPY --from=%q %q %q\n' "$pkg" "$best_match" "$best_match"
+    done | sort -u
+}
+
+# Generate the runtime Dockerfile
+generate_dockerfile() {
+    get_build_dirs
+
+    local installed
+    installed=$(get_installed_packages)
+
+    cat << 'EOF'
+# Generated Dockerfile for agentstrator:runtime
+# DO NOT EDIT — This file is generated by build-runtime.sh
+
+# ============================================================
+# Core image (opencode-ai, based on agentstrator-base)
+# ============================================================
+FROM agentstrator-core AS core
+
+EOF
+
+    # Add stage definitions for each package
+    for pkg in $installed; do
+        if has_dockerfile "$pkg"; then
+            echo ""
+            echo "# Package: $pkg"
+            echo "FROM agentstrator-$pkg AS $pkg"
+        fi
+    done
+
+    cat << 'EOF'
+
+# ============================================================
+# Final runtime image
+# ============================================================
+FROM agentstrator-core
+
+# Core is already included, copy additional files from packages
+EOF
+
+    # Copy binaries from each installed package
+    for pkg in $installed; do
+        if [ -f "$PACKAGES_DIR/$pkg/Dockerfile" ]; then
+            echo ""
+            echo "# Package: $pkg"
+
+            # Try to use new-files.txt if available (auto-detected files)
+            if docker run --rm "agentstrator-$pkg" cat /new-files.txt 2>/dev/null | grep -q .; then
+                echo "# Auto-detected files from new-files.txt"
+                # Extract files to a temporary file
+                local temp_files="/tmp/$pkg-files-$$.txt"
+                docker run --rm "agentstrator-$pkg" cat /new-files.txt > "$temp_files"
+                generate_minimal_copy_commands "$pkg" "$temp_files"
+                rm -f "$temp_files"
+
+                # Handle symlinks if new-symlinks-with-targets.txt exists
+                if docker run --rm "agentstrator-$pkg" test -f /new-symlinks-with-targets.txt 2>/dev/null; then
+                    echo "# Recreate symlinks from new-symlinks-with-targets.txt"
+                    echo "COPY --from=$pkg /new-symlinks-with-targets.txt /tmp/$pkg-symlinks.txt"
+                    echo "RUN while IFS=: read -r link target; do rm -f \"\$link\" && ln -s \"\$target\" \"\$link\"; done < /tmp/$pkg-symlinks.txt && rm -f /tmp/$pkg-symlinks.txt"
+                fi
+            fi
+        fi
+    done
+}
+
+# Build the base image (basic tools, never with --no-cache)
+# Usage: build_base_image
+build_base_image() {
+    local base_dir="$CORE_DIR/base"
+    if [ ! -f "$base_dir/Dockerfile" ]; then
+        echo "  agentstrator-base Dockerfile not found, assuming already built."
+        return
+    fi
+
+    if docker image inspect agentstrator-base >/dev/null 2>&1; then
+        echo "  agentstrator-base already built, skipping."
+    else
+        echo "  Building agentstrator-base..."
+        docker build -t agentstrator-base "$base_dir" || {
+            echo "ERROR: Failed to build agentstrator-base"
+            exit 1
+        }
+    fi
+}
+
+# Build the core image (opencode, based on agentstrator-base)
+# Usage: build_core_image [--no-cache]
+# The --no-cache flag forces a rebuild of core, but NOT of agentstrator-base.
+build_core_image() {
+    get_build_dirs
+
+    # Always ensure base image is built first (stable layer, never --no-cache)
+    build_base_image
+
+    local no_cache_flag=""
+    if [ "$1" = "--no-cache" ]; then
+        no_cache_flag="--no-cache"
+    fi
+
+    if docker image inspect agentstrator-core >/dev/null 2>&1 && [ -z "$no_cache_flag" ]; then
+        echo "  agentstrator-core already built, skipping."
+    else
+        echo "  Building agentstrator-core..."
+        docker build $no_cache_flag -t agentstrator-core "$CORE_DIR" || {
+            echo "ERROR: Failed to build agentstrator-core"
+            exit 1
+        }
+    fi
+}
+
+# Build the runtime image
+# Usage: build_runtime [--no-cache]
+build_runtime() {
+    get_build_dirs
+
+    local no_cache_flag=""
+    if [ "$1" = "--no-cache" ]; then
+        no_cache_flag="--no-cache"
+    fi
+
+    local BUILD_SCRIPT_DIR
+    if [ -d "$AGENTSTRATOR_INSTALL_DIR/lib" ]; then
+        BUILD_SCRIPT_DIR="$AGENTSTRATOR_INSTALL_DIR/lib"
+    else
+        local script_dir
+        script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        BUILD_SCRIPT_DIR="$script_dir"
+    fi
+
+    local installed
+    installed=$(get_installed_packages)
+
+    # Always build core first (it's the base)
+    build_core_image "$1"
+
+    # First, build each package image (if not exists)
+    for pkg in $installed; do
+        if has_dockerfile "$pkg"; then
+            local pkg_image="agentstrator-$pkg"
+            if docker image inspect "$pkg_image" >/dev/null 2>&1 && [ -z "$no_cache_flag" ]; then
+                echo "  $pkg_image already built, skipping."
+            else
+                echo "  Building $pkg_image..."
+                docker build $no_cache_flag -t "$pkg_image" "$PACKAGES_DIR/$pkg" || {
+                    echo "ERROR: Failed to build $pkg_image"
+                    exit 1
+                }
+            fi
+        fi
+    done
+
+    # Generate and build the runtime Dockerfile
+    local dockerfile_path="/tmp/agentstrator-runtime.dockerfile"
+    generate_dockerfile > "$dockerfile_path"
+
+    echo "Building runtime image..."
+    docker build $no_cache_flag -t "$RUNTIME_IMAGE" -f "$dockerfile_path" "$BUILD_SCRIPT_DIR" || {
+        echo "ERROR: Failed to build runtime image"
+        rm -f "$dockerfile_path"
+        exit 1
+    }
+
+    rm -f "$dockerfile_path"
+    echo "Successfully built $RUNTIME_IMAGE"
+}
+
+# Show status
+show_status() {
+    local installed
+    installed=$(get_installed_packages)
+
+    echo "Installed packages:"
+    for pkg in $installed; do
+        if has_dockerfile "$pkg"; then
+            echo "  $pkg (Dockerfile)"
+        else
+            echo "  $pkg (script only)"
+        fi
+    done
+
+    echo ""
+    echo "Base image (stable, never --no-cache):"
+    if docker image inspect agentstrator-base >/dev/null 2>&1; then
+        echo "  agentstrator-base exists"
+    else
+        echo "  agentstrator-base not built"
+    fi
+    echo ""
+    echo "Core image (rebuilt with --no-cache on upgrade/rebuild):"
+    if docker image inspect agentstrator-core >/dev/null 2>&1; then
+        echo "  agentstrator-core exists"
+    else
+        echo "  agentstrator-core not built"
+    fi
+    echo ""
+    echo "Runtime image:"
+    if docker image inspect "$RUNTIME_IMAGE" >/dev/null 2>&1; then
+        echo "  $RUNTIME_IMAGE exists"
+    else
+        echo "  $RUNTIME_IMAGE not built"
+    fi
+}
+
+# Main
+# Only run main if script is executed directly (not sourced)
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+case "${1:-build}" in
+    build)
+        build_runtime "$2"
+        ;;
+    generate)
+        generate_dockerfile
+        ;;
+    status)
+        show_status
+        ;;
+    -h|--help|help)
+        usage
+        ;;
+    *)
+        echo "Unknown command: $1"
+        usage
+        exit 1
+        ;;
+esac
+fi

@@ -1,0 +1,5 @@
+NAME=leankg
+DESCRIPTION=Lightweight knowledge graph with MCP for AI tools
+SOURCE=https://github.com/FreePeak/LeanKG
+PORT=8999
+RUN=setsid leankg mcp-stdio --watch >/dev/null 2>&1 &

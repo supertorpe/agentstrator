@@ -1,0 +1,201 @@
+#!/bin/bash
+
+# ============================================================
+# agentstrator
+# ============================================================
+# Subcommands:
+#   setup            — Interactive installer / uninstall
+#   services         — Manage services (start/stop/restart/logs/status/build)
+#
+# Direct usage (no subcommand):
+#   agentstrator [OPTIONS] [workspace_dir]   — cli / srv / shell
+#   agentstrator --uninstall                 — Uninstall everything
+# ============================================================
+
+# ---------- Remote install detection (from agentstrator-setup) ----------
+REMOTE_MODE=false
+if [[ ! -f "$0" || "$0" = *[/-]bash* || "$0" = */dev/fd/* ]]; then
+    if [[ ! -t 0 ]]; then
+        REMOTE_MODE=true
+    fi
+fi
+
+if [ "$REMOTE_MODE" = true ]; then
+    SCRIPT_DIR="$(mktemp -d)"
+    mkdir -p "$SCRIPT_DIR/agentstrator"
+    INSTALL_SOURCE_DIR="$SCRIPT_DIR/agentstrator"
+else
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    INSTALL_SOURCE_DIR="$SCRIPT_DIR"
+fi
+
+# ---------- Global paths ----------
+AGENTSTRATOR_INSTALL_DIR="${AGENTSTRATOR_INSTALL_DIR:-$HOME/.agentstrator}"
+AGENTSTRATOR_INSTALL_BIN="${AGENTSTRATOR_INSTALL_BIN:-$HOME/.local/bin}"
+VOLUME_DIR="$AGENTSTRATOR_INSTALL_DIR/volume"
+CONFIG_FILE="$AGENTSTRATOR_INSTALL_DIR/config.json"
+ENV_FILE="$AGENTSTRATOR_INSTALL_DIR/.env"
+
+# ---------- Source commons ----------
+if [ -f "$AGENTSTRATOR_INSTALL_DIR/commons.sh" ]; then
+    source "$AGENTSTRATOR_INSTALL_DIR/commons.sh"
+elif [ -f "$SCRIPT_DIR/commons.sh" ]; then
+    source "$SCRIPT_DIR/commons.sh"
+fi
+
+# ---------- Source lib scripts ----------
+# Prefer installed lib/, fall back to source lib/
+SCRIPT_DIR_LIB="$SCRIPT_DIR"
+if [ -d "$AGENTSTRATOR_INSTALL_DIR/lib" ]; then
+    for lib in "$AGENTSTRATOR_INSTALL_DIR"/lib/*.sh; do
+        [ -f "$lib" ] && source "$lib"
+    done
+elif [ -d "$SCRIPT_DIR_LIB/lib" ]; then
+    for lib in "$SCRIPT_DIR_LIB"/lib/*.sh; do
+        [ -f "$lib" ] && source "$lib"
+    done
+fi
+
+# ============================================================
+# Dispatch
+# ============================================================
+
+# Check for --uninstall anywhere in args (top-level or subcommand)
+ALL_ARGS=("$@")
+HAS_UNINSTALL=false
+for arg in "${ALL_ARGS[@]}"; do
+    if [ "$arg" = "--uninstall" ]; then
+        HAS_UNINSTALL=true
+        break
+    fi
+done
+
+FIRST_ARG="${1:-}"
+
+# Dispatch based on first argument
+case "$FIRST_ARG" in
+    setup)
+        # Strip "setup" from args and pass rest to run_setup
+        shift
+        run_setup "$@"
+        ;;
+    services)
+        # Strip "services" from args and pass rest to run_services
+        shift
+        run_services "$@"
+        ;;
+    list)
+        list_packages
+        ;;
+    info)
+        info_package "${2:-}"
+        ;;
+    install)
+        install_package "${2:-}"
+        ;;
+    remove)
+        remove_package "${2:-}"
+        ;;
+    upgrade)
+        upgrade
+        ;;
+    status)
+        upgrade_status
+        ;;
+    rebuild)
+        rebuild_packages
+        ;;
+    *)
+        # Check if FIRST_ARG looks like a valid command
+        if [[ -n "$FIRST_ARG" ]] && [[ "$FIRST_ARG" != -* ]]; then
+            echo "ERROR: Unknown command '$FIRST_ARG'"
+            echo "Run 'agentstrator --help' for available commands."
+            exit 1
+        fi
+
+        # cli mode or --uninstall
+        if [ "$HAS_UNINSTALL" = "true" ]; then
+            # Remove --uninstall from args and run setup uninstall
+            NO_UNINSTALL_ARGS=()
+            for arg in "$@"; do
+                if [ "$arg" != "--uninstall" ]; then
+                    NO_UNINSTALL_ARGS+=("$arg")
+                fi
+            done
+            # Clear first arg so parse_args doesn't see it
+            FIRST_ARG=""
+            parse_args "${NO_UNINSTALL_ARGS[@]}"
+            uninstall_agentstrator
+            exit $?
+        fi
+
+        # Normal cli mode
+        parse_args "$@"
+
+        if [[ "$ATTACH_CONTAINER" == "select" ]]; then
+            if select_container; then
+                attach_container "$ATTACH_CONTAINER" "$MODE"
+            fi
+            exit 0
+        elif [[ -n "$ATTACH_CONTAINER" ]]; then
+            attach_container "$ATTACH_CONTAINER" "$MODE"
+            exit 0
+        fi
+
+        # If no explicit mode set and no args, show mode menu
+        if [[ -z "$EXPLICIT_MODE" ]] && [[ "$MODE" == "cli" ]] && [[ "$SERVER_MODE" != "true" ]]; then
+            if [ ! -d "$AGENTSTRATOR_INSTALL_DIR" ] || [ ! -f "$CONFIG_FILE" ]; then
+                run_setup
+            else
+                show_mode_menu
+            fi
+        fi
+
+        if [[ -n "$EXPLICIT_MODE" ]]; then
+            EXPLICIT_MODE=""
+        fi
+
+        if [[ "$MODE" == "register-container" ]]; then
+            if select_container; then
+                attach_container "$ATTACH_CONTAINER" "$MODE"
+            fi
+            exit 0
+        fi
+
+        if ! check_volume; then
+            exit 1
+        fi
+
+        if [ "$MODE" = "shell" ]; then
+            run_shell_mode
+            exit $?
+        fi
+
+        if [ "$MODE" = "dev" ]; then
+            run_dev_container_mode
+            exit $?
+        fi
+
+        if [ "$MODE" = "srv" ]; then
+            registry_url=$(get_registry_url)
+
+            if [[ "$registry_url" == file://* ]]; then
+                reg_file="${registry_url#file://}"
+                if [[ ! -f "$reg_file" ]] || [[ ! -s "$reg_file" ]]; then
+                    echo '{"agents": []}' > "$reg_file"
+                fi
+                display_path="${registry_url#file://}"
+                echo "Using file-based registry: $display_path"
+            else
+                if [[ -n "$CUSTOM_REGISTRY_URL" ]]; then
+                    echo "Using custom registry: $CUSTOM_REGISTRY_URL"
+                else
+                    start_services_internal
+                fi
+            fi
+            run_server_mode
+        else
+            run_cli_mode
+        fi
+        ;;
+esac

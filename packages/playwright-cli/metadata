@@ -1,0 +1,5 @@
+NAME=playwright-cli
+DESCRIPTION=Browser automation
+SOURCE=https://github.com/microsoft/playwright-cli
+COMMANDS=playwright-cli
+

@@ -1,0 +1,4 @@
+NAME=bmalph
+DESCRIPTION=BMAD-METHOD with Ralph
+SOURCE=https://github.com/LarsCowe/bmalph
+PATH=/usr/local/lib/node_modules/bmalph/bin

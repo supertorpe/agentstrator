@@ -1,0 +1,4 @@
+NAME=mempalace
+DESCRIPTION=AI memory system
+SOURCE=https://github.com/MemPalace/mempalace
+ENV=MEMPALACE_PALACE_PATH={WORKDIR}/.mempalace

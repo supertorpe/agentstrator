@@ -1,0 +1,21 @@
+services:
+  registry:
+    image: agentstrator-services
+    container_name: agentstrator-registry
+    command: uvicorn registry.main:app --host 0.0.0.0 --port 8090
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    volumes:
+      - ${CONFIG_DIR:-.}/registry.json:/data/registry.json
+    environment:
+      - REGISTRY_FILE_PATH=/data/registry.json
+      - HEARTBEAT_TIMEOUT_SECONDS=60
+    ports:
+      - "8090:8090"
+    networks:
+      - agentstrator-net
+    restart: unless-stopped
+
+networks:
+  agentstrator-net:
+    external: true
+    name: agentstrator-net

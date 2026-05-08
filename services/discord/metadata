@@ -1,0 +1,3 @@
+NAME=discord
+DESCRIPTION=Discord bot bridge
+REQUIRES_CONFIG=true

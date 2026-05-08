@@ -1,0 +1,25 @@
+services:
+  telegram-bridge:
+    image: agentstrator-services
+    container_name: agentstrator-telegram-bridge
+    command: python /app/telegram-bridge/main.py
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    volumes:
+      - ${CONFIG_DIR:-.}/log/sessions:/home/user/sessions
+      - ${CONFIG_DIR:-.}/registry.json:/agentstrator/registry.json
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - POLL_INTERVAL=${POLL_INTERVAL:-1}
+      - ALLOWED_USERS=${TELEGRAM_ALLOWED_USERS:-}
+      - LOG_RETENTION_DAYS=${LOG_RETENTION_DAYS:-30}
+      - REGISTRY_URL=file:///agentstrator/registry.json
+      - NO_PROXY=.agentstrator
+      - no_proxy=.agentstrator
+    networks:
+      - agentstrator-net
+    restart: unless-stopped
+
+networks:
+  agentstrator-net:
+    external: true
+    name: agentstrator-net

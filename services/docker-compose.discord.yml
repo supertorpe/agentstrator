@@ -1,0 +1,23 @@
+services:
+  discord-bridge:
+    image: agentstrator-services
+    container_name: agentstrator-discord-bridge
+    command: python /app/discord-bridge/main.py
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    volumes:
+      - ${CONFIG_DIR:-.}/log/sessions:/home/user/sessions
+      - ${CONFIG_DIR:-.}/registry.json:/agentstrator/registry.json
+    environment:
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
+      - ALLOWED_USERS=${DISCORD_ALLOWED_USERS:-}
+      - REGISTRY_URL=file:///agentstrator/registry.json
+      - NO_PROXY=.agentstrator
+      - no_proxy=.agentstrator
+    networks:
+      - agentstrator-net
+    restart: unless-stopped
+
+networks:
+  agentstrator-net:
+    external: true
+    name: agentstrator-net

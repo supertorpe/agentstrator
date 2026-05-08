@@ -1,0 +1,7 @@
+NAME=lean-ctx
+DESCRIPTION=Reduces LLM token consumption up to 99%
+SOURCE=https://github.com/yvgude/lean-ctx
+ENV=BASH_ENV=/agentstrator/.lean-ctx/env.sh
+ENV=CLAUDE_ENV_FILE=/agentstrator/.lean-ctx/env.sh
+PORT=3333
+RUN=setsid lean-ctx dashboard --host=0.0.0.0 >/dev/null 2>&1 &

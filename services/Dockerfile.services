@@ -1,0 +1,32 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install system deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy all requirements and install at once
+COPY registry/src/requirements.txt /app/registry/
+COPY telegram/src/requirements.txt /app/telegram-bridge/
+COPY discord/src/requirements.txt /app/discord-bridge/
+
+RUN pip install --no-cache-dir \
+    -r /app/registry/requirements.txt \
+    -r /app/telegram-bridge/requirements.txt \
+    -r /app/discord-bridge/requirements.txt \
+    && rm -rf /app/*/requirements.txt
+
+# Copy all service source code
+COPY registry/src/ /app/registry/
+COPY telegram/src/ /app/telegram-bridge/
+COPY discord/src/ /app/discord-bridge/
+
+# Create default data directories
+RUN mkdir -p /data /home/user/sessions
+
+# Default: run registry (overridden by docker-compose command)
+EXPOSE 8090
+
+CMD ["uvicorn", "registry.main:app", "--host", "0.0.0.0", "--port", "8090"]

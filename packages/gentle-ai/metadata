@@ -1,0 +1,4 @@
+NAME=gentle-ai
+DESCRIPTION=SDD workflow, memory, and skills
+SOURCE=https://github.com/Gentleman-Programming/gentle-ai
+RUN=setsid engram serve >/dev/null 2>&1 &

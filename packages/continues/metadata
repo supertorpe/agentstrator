@@ -1,0 +1,3 @@
+NAME=continues
+DESCRIPTION=Resume coding sessions
+SOURCE=https://github.com/yigitkonur/cli-continues

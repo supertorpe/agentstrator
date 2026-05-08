@@ -1,0 +1,4 @@
+NAME=openspec
+DESCRIPTION=Spec-driven development
+SOURCE=https://github.com/Fission-AI/OpenSpec
+ENV=OPENSPEC_TELEMETRY=0

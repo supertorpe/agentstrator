@@ -1,0 +1,3 @@
+NAME=tokscale
+DESCRIPTION=Token usage tracker and visualization dashboard
+SOURCE=https://github.com/junhoyeo/tokscale

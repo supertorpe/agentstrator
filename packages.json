@@ -1,0 +1,57 @@
+[
+  {
+    "category": "Core",
+    "packages": [
+      { "name": "core" }
+    ]
+  },
+  {
+    "category": "Token Compression & Monitoring",
+    "packages": [
+      { "name": "rtk" },
+      { "name": "lean-ctx" },
+      { "name": "context-mode" },
+      { "name": "caveman" },
+      { "name": "tokscale" },
+      { "name": "tokenscope" }
+    ]
+  },
+  {
+    "category": "Workflows & Orchestration",
+    "packages": [
+      { "name": "continues" },
+      { "name": "superpowers" },
+      { "name": "oh-my-openagent" },
+      { "name": "gentle-ai" },
+      { "name": "nwave" },
+      { "name": "openspec" },
+      { "name": "bmalph" },
+      { "name": "agent-skills" }
+    ]
+  },
+  {
+    "category": "Memory / Knowledge / Understanding",
+    "packages": [
+      { "name": "graphify" },
+      { "name": "mempalace" },
+      { "name": "agentmemory" },
+      { "name": "codedna" },
+      { "name": "leankg" }
+    ]
+  },
+  {
+    "category": "Developer Tools",
+    "packages": [
+      { "name": "playwright-cli" },
+      { "name": "agent-browser" },
+      { "name": "sentrux" }
+    ]
+  },
+  {
+    "category": "Channels",
+    "packages": [
+      { "name": "telegram-bridge" },
+      { "name": "discord-bridge" }
+    ]
+  }
+]

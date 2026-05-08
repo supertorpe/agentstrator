@@ -1,0 +1,3 @@
+NAME=caveman
+DESCRIPTION=Cuts 65% of tokens by talking like caveman
+SOURCE=https://github.com/JuliusBrussee/caveman

@@ -1,0 +1,3 @@
+NAME=graphify
+DESCRIPTION=Knowledge graph builder
+SOURCE=https://github.com/safishamsi/graphify

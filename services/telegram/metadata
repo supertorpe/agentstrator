@@ -1,0 +1,3 @@
+NAME=telegram
+DESCRIPTION=Telegram bot bridge
+REQUIRES_CONFIG=true

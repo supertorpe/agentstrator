@@ -1,0 +1,3 @@
+NAME=tokenscope
+DESCRIPTION=Token usage analysis and cost tracking
+SOURCE=https://github.com/ramtinJ95/opencode-tokenscope
