@@ -58,11 +58,6 @@ check_runtime_image() {
     docker image inspect "$RUNTIME_IMAGE" >/dev/null 2>&1
 }
 
-# Get the runtime image name
-get_runtime_image() {
-    echo "$RUNTIME_IMAGE"
-}
-
 # Check if the volume directory exists and is non-empty.
 # Returns: 0 if volume is valid, 1 otherwise
 check_volume() {

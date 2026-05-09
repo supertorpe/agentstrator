@@ -363,25 +363,3 @@ rebuild_packages() {
     echo ""
     echo "Rebuild complete: $success/$total succeeded, $failed failed."
 }
-
-# Update package list from GitHub.
-# Usage: update_packages
-# Fetches the latest packages.json and updates local package metadata.
-update_packages() {
-    local repo_url="https://raw.githubusercontent.com/supertorpe/agentstrator/main"
-    local packages_json_url="$repo_url/packages.json"
-
-    echo "Fetching package list from GitHub..."
-
-    local remote_packages
-    remote_packages=$(curl -sL "$packages_json_url" 2>/dev/null)
-    if [ -z "$remote_packages" ]; then
-        echo "ERROR: Failed to fetch packages.json from GitHub"
-        return 1
-    fi
-
-    # Save packages.json locally
-    echo "$remote_packages" | jq '.' > "$AGENTSTRATOR_INSTALL_DIR/packages.json"
-
-    echo "Package list updated. Use 'agentstrator list' to see available packages."
-}

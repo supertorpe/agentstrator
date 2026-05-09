@@ -41,11 +41,6 @@ get_installed_packages() {
     jq -r 'to_entries[] | select(.value.type == "package" and .value.installed == true) | .key' "$CONFIG_FILE" 2>/dev/null || true
 }
 
-# Get list of installed services from config.json
-get_installed_services() {
-    jq -r 'to_entries[] | select(.value.type == "service" and .value.installed == true) | .key' "$CONFIG_FILE" 2>/dev/null || true
-}
-
 # Check if a package has a Dockerfile
 has_dockerfile() {
     local pkg="$1"

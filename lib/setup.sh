@@ -72,9 +72,6 @@ get_package_name() {
 
     local metadata_file="$source_dir/packages/$tool/metadata"
     if [ ! -f "$metadata_file" ]; then
-        metadata_file="$source_dir/tools/$tool/metadata"
-    fi
-    if [ ! -f "$metadata_file" ]; then
         metadata_file="$AGENTSTRATOR_INSTALL_DIR/packages/$tool/metadata"
     fi
     if [ -f "$metadata_file" ]; then
@@ -97,9 +94,6 @@ get_package_description() {
 
     local metadata_file="$source_dir/packages/$tool/metadata"
     if [ ! -f "$metadata_file" ]; then
-        metadata_file="$source_dir/tools/$tool/metadata"
-    fi
-    if [ ! -f "$metadata_file" ]; then
         metadata_file="$AGENTSTRATOR_INSTALL_DIR/packages/$tool/metadata"
     fi
     if [ -f "$metadata_file" ]; then
@@ -121,10 +115,6 @@ get_package_path() {
     fi
 
     local metadata_file="$source_dir/packages/$tool/metadata"
-    if [ ! -f "$metadata_file" ]; then
-        # Fallback to old tools/ directory
-        metadata_file="$source_dir/tools/$tool/metadata"
-    fi
     if [ -f "$metadata_file" ]; then
         grep "^PATH=" "$metadata_file" | cut -d'=' -f2- | xargs
     fi

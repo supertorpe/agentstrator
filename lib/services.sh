@@ -176,14 +176,8 @@ services_stop() {
                     telegram) project_name="agentstrator-telegram" ;;
                     discord) project_name="agentstrator-discord" ;;
                 esac
-local project_name
-        case "$service" in
-            registry|Registry) project_name="agentstrator-registry" ;;
-            telegram|telegram-bridge) project_name="agentstrator-telegram" ;;
-            discord|discord-bridge) project_name="agentstrator-discord" ;;
-        esac
 
-        docker compose -p "$project_name" -f "$compose_file" --env-file "$ENV_FILE" down 2>/dev/null || true
+                docker compose -p "$project_name" -f "$compose_file" --env-file "$ENV_FILE" down 2>/dev/null || true
                 echo "$config_key stopped."
             fi
         done

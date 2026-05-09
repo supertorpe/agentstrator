@@ -5,56 +5,6 @@
 #
 
 # ============================================================
-# Versioning
-# ============================================================
-
-# Compare two version strings.
-# Usage: result=$(compare_versions "1.2.3" "1.2.4")
-# Returns: "0" if v1 > v2, "1" if v1 < v2, "2" if equal
-compare_versions() {
-    local v1="$1"
-    local v2="$2"
-
-    # Empty versions are treated as equal
-    if [ -z "$v1" ] && [ -z "$v2" ]; then
-        echo 2
-        return
-    fi
-    if [ -z "$v1" ]; then
-        echo 1  # empty is older
-        return
-    fi
-    if [ -z "$v2" ]; then
-        echo 0  # non-empty is newer
-        return
-    fi
-
-    # Split on dots and compare component by component
-    local IFS='.'
-    read -ra v1_parts <<< "$v1"
-    read -ra v2_parts <<< "$v2"
-
-    local max=${#v1_parts[@]}
-    if [ ${#v2_parts[@]} -gt $max ]; then
-        max=${#v2_parts[@]}
-    fi
-
-    for ((i=0; i<max; i++)); do
-        local n1=${v1_parts[$i]:-0}
-        local n2=${v2_parts[$i]:-0}
-        if [ "$n1" -gt "$n2" ] 2>/dev/null; then
-            echo 0
-            return
-        elif [ "$n1" -lt "$n2" ] 2>/dev/null; then
-            echo 1
-            return
-        fi
-    done
-
-    echo 2
-}
-
-# ============================================================
 # Network
 # ============================================================
 
