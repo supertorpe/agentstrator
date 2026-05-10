@@ -381,9 +381,17 @@ show_category_checklist() {
     [ "$height" -lt 12 ] && height=12
     [ "$height" -gt 20 ] && height=20
 
+    local width=80
+    local max_line=0
+    for ((i=0; i<${#menu_options[@]}; i+=3)); do
+        local line_len=$(( ${#menu_options[i]} + ${#menu_options[i+1]} + 16 ))
+        [ "$line_len" -gt "$max_line" ] && max_line=$line_len
+    done
+    width=$((max_line < 60 ? 60 : max_line > 120 ? 120 : max_line))
+
     local result
     result=$(whiptail --title "$category" --checklist \
-        "Select tools to install:" $height 80 "$idx" \
+        "Select tools to install:" $height $width "$idx" \
         "${menu_options[@]}" 3>&1 1>&2 2>&3)
     local ret=$?
 
@@ -429,9 +437,17 @@ show_channels_checklist() {
     [ "$height" -lt 12 ] && height=12
     [ "$height" -gt 20 ] && height=20
 
+    local width=80
+    local max_line=0
+    for ((i=0; i<${#menu_options[@]}; i+=3)); do
+        local line_len=$(( ${#menu_options[i]} + ${#menu_options[i+1]} + 10 ))
+        [ "$line_len" -gt "$max_line" ] && max_line=$line_len
+    done
+    width=$((max_line < 60 ? 60 : max_line > 120 ? 120 : max_line))
+
     local result
     result=$(whiptail --title "Channels" --checklist \
-        "Select channels to install:" $height 80 "$idx" \
+        "Select channels to install:" $height $width "$idx" \
         "${menu_options[@]}" 3>&1 1>&2 2>&3)
     local ret=$?
 
