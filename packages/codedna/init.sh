@@ -10,7 +10,7 @@ if [ -z "$WORKSPACE" ] || [ ! -d "$WORKSPACE" ]; then
     exit 0
 fi
 
-if [ -f "$WORKSPACE/bmalph/config.json" ]; then
+if [ -f "$WORKSPACE/.codedna" ]; then
     exit 0
 fi
 

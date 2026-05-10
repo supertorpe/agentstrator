@@ -11,6 +11,6 @@ fi
 
 rm -rf "$VOLUME/.mempalace" 2>/dev/null || true
 
-remove_mcp_from_opencode "$VOLUME" "mempalace-mcp" 2>/dev/null || true
+remove_mcp_from_opencode "$VOLUME" "mempalace" 2>/dev/null || true
 
 echo "mempalace uninstalled successfully"
