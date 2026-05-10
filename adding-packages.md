@@ -36,7 +36,7 @@ COMMANDS=mycmd,myothercmd
 | Field | Required | Description |
 |-------|----------|-------------|
 | `NAME` | Yes | Display name in the TUI menu and config key |
-| `DESCRIPTION` | No | Shown in the TUI menu |
+| `DESCRIPTION` | No | Shown in the TUI menu (max 50 characters) |
 | `SOURCE` | No | Link to source code |
 | `COMMANDS` | No | Comma-separated list of binaries this package provides (for agent awareness) |
 | `PATH` | No | Non-standard paths to add to `$PATH` in the container (e.g., `PATH=/usr/local/lib/node_modules/bmalph/bin`). Standard paths (`/usr/local/bin`, etc.) are already in the container PATH. |
@@ -343,6 +343,10 @@ docker run --rm -u $(id -u):$(id -g) \
 | tokenscope | D (plugin) | No | No | No | Yes | No | No |
 | tokscale | A (NPM) | Yes | No | No | No | No | No |
 
+## Updating README.md
+
+After adding a new package, add it to the package table in `README.md` (under the appropriate category section — e.g., Token Compression, Workflows, etc.). This keeps the package catalog visible to users browsing the repository.
+
 ## Testing Your Tool
 
 1. **Build image:** `docker build -t agentstrator-mytool packages/mytool/`
@@ -365,3 +369,15 @@ docker run --rm -u $(id -u):$(id -g) \
 - [ ] MCP registration uses `add_mcp_to_opencode` / `remove_mcp_from_opencode` helpers
 - [ ] Plugin registration uses `add_plugin_to_opencode` / `remove_plugin_from_opencode` helpers
 - [ ] Instructions registration uses `add_instructions_to_opencode` / `remove_instructions_from_opencode` helpers
+
+## Testing Checklist
+
+After adding a new package, verify it works correctly:
+
+- [ ] `./test-package.sh <name>` passes all phases
+- [ ] `agentstrator install <name>` works (single-package install)
+- [ ] `agentstrator remove <name>` works (single-package remove, cleanup verified)
+- [ ] `agentstrator rebuild` succeeds without breaking other packages
+- [ ] `docker run --rm agentstrator:runtime which <cmd>` returns the binary
+- [ ] `init.sh` exits cleanly (if present)
+- [ ] PATH correctly set for non-standard paths (if `PATH=` in metadata)
