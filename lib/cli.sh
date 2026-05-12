@@ -898,7 +898,7 @@ run_server_mode() {
 
     send_heartbeat "$worker_name" "$registry_url" &
     HEARTBEAT_PID=$!
-    trap "kill $HEARTBEAT_PID 2>/dev/null; deregister_from_registry '$worker_name' '$registry_url'" EXIT
+    trap "kill $HEARTBEAT_PID 2>/dev/null; wait $HEARTBEAT_PID 2>/dev/null; deregister_from_registry '$worker_name' '$registry_url'" EXIT
 
     local volumes_str
     volumes_str=$(build_volumes_str)
@@ -949,7 +949,7 @@ local interactive="-it"
         fi
     fi
 
-    docker run --rm $interactive \
+    docker run --rm --init $interactive \
         --name "$container_hostname" \
         --network agentstrator-net \
         -p "${host_port}:8080" \
@@ -1291,9 +1291,6 @@ run_dev_container_server() {
     local env_vars
     env_vars=$(build_env_vars "$additional_path" "-e DEV_CONTAINER=$DEV_CONTAINER" "$workdir" "/agentstrator/.config/opencode/$config_file")
 
-    # Cleanup generated files on exit
-    trap "rm -f '$config_dir/$config_file' '$VOLUME_DIR/.config/opencode/$instruction_file'; kill $heartbeat_pid 2>/dev/null; deregister_from_registry '$agent_container' '$registry_url'" EXIT
-
     ensure_network
 
     local dev_container_networks
@@ -1342,6 +1339,8 @@ run_dev_container_server() {
     send_heartbeat "$agent_container" "$registry_url" &
     local heartbeat_pid=$!
 
+    trap "rm -f '$config_dir/$config_file' '$VOLUME_DIR/.config/opencode/$instruction_file'; kill $heartbeat_pid 2>/dev/null; wait $heartbeat_pid 2>/dev/null; deregister_from_registry '$agent_container' '$registry_url'" EXIT
+
     echo "Starting OpenCode Server in Dev Container Mode..."
     echo "Dev container: $DEV_CONTAINER"
     echo "Agent container: $agent_container"
@@ -1369,7 +1368,7 @@ run_dev_container_server() {
         tty_flag=""
     fi
 
-    docker run --rm $tty_flag \
+    docker run --rm --init $tty_flag \
         --name "$agent_container" \
         --network agentstrator-net \
         $extra_networks \
@@ -1383,5 +1382,5 @@ run_dev_container_server() {
         -u "${USER_ID}:${GROUP_ID}" \
         -e DEV_CONTAINER="$DEV_CONTAINER" \
         $(get_runtime_base_image) \
-        bash -c "opencode serve --hostname 0.0.0.0 --port 8080"
+        bash -c "exec opencode serve --hostname 0.0.0.0 --port 8080"
 }
