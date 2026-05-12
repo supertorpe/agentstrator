@@ -7,6 +7,7 @@ class SessionInfo:
     session_id: str
     mode: str
     title: str
+    model: Optional[str] = None
     last_message_id: Optional[str] = None
 
 
