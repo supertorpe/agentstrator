@@ -96,7 +96,16 @@ class AgentClient:
             agent_url_base = await get_agent_url(agent)
             if not agent_url_base:
                 logger.error(f"Agent URL not found for: {agent}")
-return [{"name": "plan"}, {"name": "build"}]
+                return [{"name": "plan"}, {"name": "build"}]
+            agent_url = f"{agent_url_base}/agent"
+            async with httpx.AsyncClient() as client:
+                response = await client.get(agent_url, timeout=43200.0)
+                if response.status_code == 200:
+                    agents = response.json()
+                    return [a for a in agents if not a.get("hidden", False)]
+        except Exception as e:
+            logger.error(f"Error getting agent modes: {e}")
+        return [{"name": "plan"}, {"name": "build"}]
 
     @staticmethod
     async def get_agent_providers(agent: str) -> List[Dict[str, Any]]:
@@ -115,13 +124,3 @@ return [{"name": "plan"}, {"name": "build"}]
         except Exception as e:
             logger.error(f"Error getting agent providers: {e}")
         return []
-            agent_url = f"{agent_url_base}/agent"
-            async with httpx.AsyncClient() as client:
-                response = await client.get(agent_url, timeout=43200.0)
-                if response.status_code == 200:
-                    agents = response.json()
-                    # Filter out hidden agents
-                    return [a for a in agents if not a.get("hidden", False)]
-        except Exception as e:
-            logger.error(f"Error getting agent modes: {e}")
-        return [{"name": "plan"}, {"name": "build"}]
