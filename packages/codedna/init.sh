@@ -16,10 +16,6 @@ fi
 
 PROJECT_NAME=$(basename "$WORKSPACE")
 
-if [ -f "$WORKSPACE/.codedna" ]; then
-    exit 0
-fi
-
 docker run --rm -it -v "$WORKSPACE:/workspace" -v "$VOLUME:/agentstrator" -u $(id -u):$(id -g) \
     -e HOME=/agentstrator \
     -e OPENCODE_CONFIG=/agentstrator/.config/opencode/opencode.json \
