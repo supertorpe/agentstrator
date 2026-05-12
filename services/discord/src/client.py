@@ -70,6 +70,7 @@ class AgentClient:
         session_id: str,
         mode: str,
         text: str,
+        model: Optional[str] = None,
         timeout: float = 43200.0
     ) -> httpx.Response:
         """Send a message to an agent session."""
@@ -77,10 +78,13 @@ class AgentClient:
         if not agent_url_base:
             raise ValueError(f"Agent URL not found for: {agent}")
         agent_url = f"{agent_url_base}/session/{session_id}/message"
+        body = {"agent": mode, "parts": [{"type": "text", "text": text}]}
+        if model:
+            body["model"] = model
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 agent_url,
-                json={"agent": mode, "parts": [{"type": "text", "text": text}]},
+                json=body,
                 timeout=timeout
             )
             return response
@@ -92,7 +96,25 @@ class AgentClient:
             agent_url_base = await get_agent_url(agent)
             if not agent_url_base:
                 logger.error(f"Agent URL not found for: {agent}")
-                return [{"name": "plan"}, {"name": "build"}]
+return [{"name": "plan"}, {"name": "build"}]
+
+    @staticmethod
+    async def get_agent_providers(agent: str) -> List[Dict[str, Any]]:
+        """Get available providers and models from an agent's /config/providers endpoint."""
+        try:
+            agent_url_base = await get_agent_url(agent)
+            if not agent_url_base:
+                logger.error(f"Agent URL not found for: {agent}")
+                return []
+            agent_url = f"{agent_url_base}/config/providers"
+            async with httpx.AsyncClient() as client:
+                response = await client.get(agent_url, timeout=43200.0)
+                if response.status_code == 200:
+                    data = response.json()
+                    return data.get("providers", [])
+        except Exception as e:
+            logger.error(f"Error getting agent providers: {e}")
+        return []
             agent_url = f"{agent_url_base}/agent"
             async with httpx.AsyncClient() as client:
                 response = await client.get(agent_url, timeout=43200.0)
