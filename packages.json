@@ -35,6 +35,7 @@
       { "name": "graphify" },
       { "name": "mempalace" },
       { "name": "agentmemory" },
+      { "name": "codegraph" },
       { "name": "codedna" },
       { "name": "leankg" }
     ]

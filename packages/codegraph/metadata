@@ -1,0 +1,4 @@
+NAME=codegraph
+DESCRIPTION=Semantic knowledge graph of codebases
+SOURCE=https://github.com/colbymchenry/codegraph
+COMMANDS=codegraph

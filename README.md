@@ -97,6 +97,7 @@ Agentstrator packages install inside the Docker image, not on the host. They're 
 | [`graphify`](https://github.com/safishamsi/graphify)  | Knowledge graph builder                           |
 | [`mempalace`](https://github.com/MemPalace/mempalace) | AI memory system                                  |
 | [`agentmemory`](https://github.com/rohitg00/agentmemory) | Persistent memory for AI coding agents        |
+| [`codegraph`](https://github.com/colbymchenry/codegraph)   | Semantic knowledge graph of codebases       |
 | [`codedna`](https://github.com/Larens94/codedna)   | In-source annotation protocol for AI agents       |
 | [`leankg`](https://github.com/FreePeak/LeanKG)    | Lightweight knowledge graph with MCP for AI tools |
 
