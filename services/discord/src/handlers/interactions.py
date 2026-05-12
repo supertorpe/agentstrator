@@ -8,7 +8,9 @@ from client import AgentClient
 from buttons import (
     show_mode_selection,
     show_session_selection,
+    show_provider_selection,
     join_session,
+    ModelSwitchView,
     _get_state_key,
 )
 
@@ -36,8 +38,7 @@ def setup_interactions(bridge):
 
         elif prefix == "select":
             agent_name = parts[1]
-            modes = await AgentClient.get_agent_modes(agent_name)
-            await show_mode_selection(interaction, agent_name, modes, bridge)
+            await show_provider_selection(interaction, agent_name, bridge)
 
         elif prefix == "mode":
             agent_name = parts[1]
@@ -73,6 +74,27 @@ def setup_interactions(bridge):
                 await interaction.followup.send("Session deleted.", ephemeral=True)
             else:
                 await interaction.followup.send("Failed to delete session.", ephemeral=True)
+
+        elif prefix == "select_provider":
+            agent_name = parts[1]
+            await show_provider_selection(interaction, agent_name, bridge)
+
+        elif prefix == "switchmodel":
+            key = _get_state_key(interaction)
+            state = bridge.conversation_state.get(key)
+            if not state or not state.active_agent:
+                await interaction.response.send_message("No active session.", ephemeral=True)
+                return
+            agent_name = state.active_agent
+            providers = await AgentClient.get_agent_providers(agent_name)
+            if not providers:
+                await interaction.response.send_message("This agent doesn't support model selection.", ephemeral=True)
+                return
+            await interaction.response.send_message(
+                f"Select a model for **{agent_name}**:",
+                view=ModelSwitchView(bridge, agent_name, providers),
+                ephemeral=True,
+            )
 
         elif prefix == "switchmode":
             mode_name = parts[1]

@@ -22,7 +22,7 @@ async def handle_command(
     if text == "/start" or text == "/help":
         await bot.send_message(
             chat_id=chat_id,
-            text="Available commands:\n/agents - Select a worker and mode\n/sessions - View and manage your sessions\n/mode - Switch between Plan and Build modes\n/log - View session logs"
+            text="Available commands:\n/agents - Select a worker, provider, model, and mode\n/sessions - View and manage your sessions\n/mode - Switch between Plan and Build modes\n/model - Change the active model\n/log - View session logs"
         )
         return
 
@@ -64,6 +64,33 @@ async def handle_command(
             chat_id=chat_id,
             text=f"Current mode: {current_mode.upper()}",
             reply_markup=build_mode_switch_keyboard(current_mode, modes)
+        )
+        return
+
+    if text == "/model":
+        chat_id_str = str(chat_id)
+        if chat_id_str not in conversation_state:
+            await bot.send_message(chat_id=chat_id, text="No active session. Use /agents to start one.")
+            return
+
+        state = conversation_state[chat_id_str]
+        active_agent = state.get("active_agent")
+
+        if not active_agent:
+            await bot.send_message(chat_id=chat_id, text="No active session. Use /agents to start one.")
+            return
+
+        from keyboards import build_model_switch_keyboard
+        model_text, model_keyboard = await build_model_switch_keyboard(active_agent)
+
+        if not model_keyboard.inline_keyboard:
+            await bot.send_message(chat_id=chat_id, text="This agent doesn't support model selection.")
+            return
+
+        await bot.send_message(
+            chat_id=chat_id,
+            text=f"Select a provider:\n\n{model_text}",
+            reply_markup=model_keyboard
         )
         return
 

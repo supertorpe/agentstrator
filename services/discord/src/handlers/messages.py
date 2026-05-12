@@ -110,6 +110,7 @@ def setup_message_handler(bridge):
                 session_info.session_id,
                 session_info.mode,
                 text,
+                model=session_info.model,
             )
 
             if response.status_code == 200:

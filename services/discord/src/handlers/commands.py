@@ -7,6 +7,7 @@ from buttons import (
     AgentSelectView,
     SessionOverviewView,
     ModeSwitchView,
+    ModelSwitchView,
     LogSelectView,
     build_sessions_embed,
     _get_state_key,
@@ -27,6 +28,7 @@ def setup_commands(bridge):
                 "**/agents** - Select an agent to interact with\n"
                 "**/sessions** - View and manage your sessions\n"
                 "**/mode** - Switch the active session mode\n"
+                "**/model** - Switch the active session model\n"
                 "**/log** - View session conversation logs\n"
                 "**/help** - Show this help message\n"
                 "\n*Tip: Once a session is active, mention the bot with @ to send messages.*"
@@ -92,6 +94,37 @@ def setup_commands(bridge):
         await interaction.response.send_message(
             f"Switch mode for **{agent_name}** (current: {session_info.mode}):",
             view=ModeSwitchView(bridge, session_info.mode, modes),
+            ephemeral=True,
+        )
+
+    @bridge.bot.tree.command(name="model", description="Switch the active session model")
+    async def model_command(interaction: discord.Interaction):
+        if not _is_allowed(interaction, bridge.allowed_users):
+            await interaction.response.send_message("You are not authorized to use this bot.", ephemeral=True)
+            return
+
+        key = _get_state_key(interaction)
+        state = bridge.conversation_state.get(key)
+
+        if not state or not state.active_agent:
+            await interaction.response.send_message(
+                "No active session. Use /agents to select an agent first.",
+                ephemeral=True,
+            )
+            return
+
+        agent_name = state.active_agent
+        providers = await AgentClient.get_agent_providers(agent_name)
+        if not providers:
+            await interaction.response.send_message(
+                "This agent doesn't support model selection.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.send_message(
+            f"Select a model for **{agent_name}**:",
+            view=ModelSwitchView(bridge, agent_name, providers),
             ephemeral=True,
         )
 

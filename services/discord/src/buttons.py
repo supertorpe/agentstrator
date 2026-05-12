@@ -37,17 +37,77 @@ class AgentSelectView(ui.View):
 
     async def agent_selected(self, interaction: discord.Interaction):
         agent_name = self.children[0].values[0]
-        modes = await AgentClient.get_agent_modes(agent_name)
-        await show_mode_selection(interaction, agent_name, modes, self.bridge)
+        await show_provider_selection(interaction, agent_name, self.bridge)
+
+
+class ProviderSelectView(ui.View):
+    """View for selecting a provider (which determines available models)."""
+
+    def __init__(self, bridge, agent: str, providers: List[Dict[str, Any]]):
+        super().__init__(timeout=300)
+        self.bridge = bridge
+        self.agent = agent
+        select = ui.Select(
+            placeholder="Select a provider",
+            options=[
+                discord.SelectOption(
+                    label=p.get("name", p["id"]),
+                    value=p["id"],
+                )
+                for p in providers
+                if p.get("models")
+            ]
+        )
+        select.callback = self.provider_selected
+        self.add_item(select)
+
+    async def provider_selected(self, interaction: discord.Interaction):
+        provider_id = self.children[0].values[0]
+        providers = await AgentClient.get_agent_providers(self.agent)
+        provider = next((p for p in providers if p["id"] == provider_id), None)
+        if not provider or not provider.get("models"):
+            await interaction.response.send_message("No models available for this provider.", ephemeral=True)
+            return
+        models = list(provider["models"].values())
+        await show_model_selection(interaction, self.agent, provider_id, models, self.bridge)
+
+
+class ModelSelectView(ui.View):
+    """View for selecting a model from a provider."""
+
+    def __init__(self, bridge, agent: str, provider_id: str, models: List[Dict[str, Any]]):
+        super().__init__(timeout=300)
+        self.bridge = bridge
+        self.agent = agent
+        self.provider_id = provider_id
+        select = ui.Select(
+            placeholder="Select a model",
+            options=[
+                discord.SelectOption(
+                    label=m.get("name", m["id"]),
+                    value=m["id"],
+                )
+                for m in models
+            ]
+        )
+        select.callback = self.model_selected
+        self.add_item(select)
+
+    async def model_selected(self, interaction: discord.Interaction):
+        model_id = self.children[0].values[0]
+        model_value = f"{self.provider_id}/{model_id}"
+        modes = await AgentClient.get_agent_modes(self.agent)
+        await show_mode_selection(interaction, self.agent, modes, self.bridge, model_value)
 
 
 class ModeSelectView(ui.View):
     """View for selecting a mode."""
 
-    def __init__(self, bridge, agent: str, modes: List[Dict[str, Any]]):
+    def __init__(self, bridge, agent: str, modes: List[Dict[str, Any]], model: Optional[str] = None):
         super().__init__(timeout=300)
         self.bridge = bridge
         self.agent = agent
+        self.model = model
         select = ui.Select(
             placeholder=f"Select mode for {agent}",
             options=[
@@ -60,17 +120,18 @@ class ModeSelectView(ui.View):
 
     async def mode_selected(self, interaction: discord.Interaction):
         mode_name = self.children[0].values[0]
-        await show_session_selection(interaction, self.agent, mode_name, self.bridge)
+        await show_session_selection(interaction, self.agent, mode_name, self.bridge, self.model)
 
 
 class SessionSelectView(ui.View):
     """View for selecting or creating a session."""
 
-    def __init__(self, bridge, agent: str, mode: str, sessions: List[Dict[str, Any]]):
+    def __init__(self, bridge, agent: str, mode: str, sessions: List[Dict[str, Any]], model: Optional[str] = None):
         super().__init__(timeout=300)
         self.bridge = bridge
         self.agent = agent
         self.mode = mode
+        self.model = model
 
         if sessions:
             select = ui.Select(
@@ -93,13 +154,13 @@ class SessionSelectView(ui.View):
         if select == "_none":
             await interaction.response.send_message("Create a new session first.", ephemeral=True)
             return
-        await join_session(interaction, self.agent, self.mode, select, self.bridge)
+        await join_session(interaction, self.agent, self.mode, select, self.bridge, self.model)
 
     @ui.button(label="➕ New Session", style=discord.ButtonStyle.primary)
     async def new_session(self, interaction: discord.Interaction, button: ui.Button):
         session_id = await AgentClient.create_session(self.agent)
         if session_id:
-            await join_session(interaction, self.agent, self.mode, session_id, self.bridge)
+            await join_session(interaction, self.agent, self.mode, session_id, self.bridge, self.model)
         else:
             await interaction.response.send_message("Failed to create session.", ephemeral=True)
 
@@ -145,6 +206,65 @@ class ModeSwitchView(ui.View):
                 custom_id="noop" if is_active else f"switchmode:{mode_name}",
                 disabled=is_active,
             ))
+
+
+class ModelSwitchView(ui.View):
+    """View for switching the current model via provider→model selection."""
+
+    def __init__(self, bridge, agent: str, providers: List[Dict[str, Any]]):
+        super().__init__(timeout=300)
+        self.bridge = bridge
+        self.agent = agent
+        select = ui.Select(
+            placeholder="Select a provider",
+            options=[
+                discord.SelectOption(
+                    label=p.get("name", p["id"]),
+                    value=p["id"],
+                )
+                for p in providers
+                if p.get("models")
+            ]
+        )
+        select.callback = self.provider_selected
+        self.add_item(select)
+
+    async def provider_selected(self, interaction: discord.Interaction):
+        provider_id = self.children[0].values[0]
+        providers = await AgentClient.get_agent_providers(self.agent)
+        provider = next((p for p in providers if p["id"] == provider_id), None)
+        if not provider or not provider.get("models"):
+            await interaction.response.send_message("No models available for this provider.", ephemeral=True)
+            return
+        models = list(provider["models"].values())
+        await self.show_model_selection_inline(interaction, provider_id, models)
+
+    async def show_model_selection_inline(self, interaction: discord.Interaction, provider_id: str, models: List[Dict[str, Any]]):
+        view = ui.View(timeout=300)
+        select = ui.Select(
+            placeholder="Select a model",
+            options=[
+                discord.SelectOption(label=m.get("name", m["id"]), value=m["id"])
+                for m in models
+            ]
+        )
+        async def model_cb(interaction: discord.Interaction):
+            model_id = select.values[0]
+            model_value = f"{provider_id}/{model_id}"
+            key = _get_state_key(interaction)
+            state = self.bridge.conversation_state.get(key)
+            if state and state.active_agent and state.active_agent in state.sessions:
+                state.sessions[state.active_agent].model = model_value
+                await interaction.response.edit_message(
+                    content=f"Model changed to: **{model_value}**",
+                    view=None,
+                )
+            else:
+                await interaction.response.send_message("No active session.", ephemeral=True)
+                return
+        select.callback = model_cb
+        view.add_item(select)
+        await interaction.response.edit_message(content="Select a model:", view=view)
 
 
 class LogSelectView(ui.View):
@@ -214,8 +334,8 @@ async def build_sessions_embed(conversation_state: dict, user_id: str) -> discor
     return embed
 
 
-async def show_mode_selection(interaction, agent_name: str, modes: List[Dict[str, Any]], bridge):
-    """Show mode selection for an agent."""
+async def show_mode_selection(interaction, agent_name: str, modes: List[Dict[str, Any]], bridge, model: Optional[str] = None):
+    """Show mode selection for an agent, optionally with a pre-selected model."""
     text_lines = ["Available modes:\n"]
     for mode in modes:
         mode_name = mode.get("name", "")
@@ -225,24 +345,26 @@ async def show_mode_selection(interaction, agent_name: str, modes: List[Dict[str
             text_lines.append(f"  {mode_desc}")
         text_lines.append("")
 
+    model_info = f" (model: {model})" if model else ""
     await interaction.response.send_message(
-        f"**{get_agent_display_name(agent_name)}**\n" + "\n".join(text_lines),
-        view=ModeSelectView(bridge, agent_name, modes),
+        f"**{get_agent_display_name(agent_name)}**{model_info}\n" + "\n".join(text_lines),
+        view=ModeSelectView(bridge, agent_name, modes, model),
         ephemeral=True,
     )
 
 
-async def show_session_selection(interaction, agent_name: str, mode: str, bridge):
+async def show_session_selection(interaction, agent_name: str, mode: str, bridge, model: Optional[str] = None):
     """Show session selection for an agent and mode."""
     sessions = await AgentClient.get_agent_sessions(agent_name)
+    model_info = f" (model: {model})" if model else ""
     await interaction.response.send_message(
-        f"**{get_agent_display_name(agent_name)}** - Mode: **{mode}**",
-        view=SessionSelectView(bridge, agent_name, mode, sessions),
+        f"**{get_agent_display_name(agent_name)}** - Mode: **{mode}**{model_info}",
+        view=SessionSelectView(bridge, agent_name, mode, sessions, model),
         ephemeral=True,
     )
 
 
-async def join_session(interaction, agent_name: str, mode: str, session_id: str, bridge):
+async def join_session(interaction, agent_name: str, mode: str, session_id: str, bridge, model: Optional[str] = None):
     """Join a session and update conversation state."""
     from models import ConversationState, SessionInfo
 
@@ -255,11 +377,50 @@ async def join_session(interaction, agent_name: str, mode: str, session_id: str,
     state.sessions[agent_name] = SessionInfo(
         session_id=session_id,
         mode=mode,
+        model=model,
         title=f"Session {session_id[:8]}",
     )
 
+    model_info = f" (model: {model})" if model else ""
     await interaction.response.send_message(
-        f"Joined session in **{get_agent_display_name(agent_name)}** (mode: {mode}).\nYou can now send messages.",
+        f"Joined session in **{get_agent_display_name(agent_name)}** (mode: {mode}{model_info}).\nYou can now send messages.",
+        ephemeral=True,
+    )
+
+
+async def show_provider_selection(interaction, agent_name: str, bridge):
+    """Show provider selection for an agent."""
+    providers = await AgentClient.get_agent_providers(agent_name)
+    if not providers:
+        modes = await AgentClient.get_agent_modes(agent_name)
+        await show_mode_selection(interaction, agent_name, modes, bridge)
+        return
+
+    text_lines = ["Available providers:\n"]
+    for p in providers:
+        models = p.get("models", {})
+        if models:
+            model_names = ", ".join(m.get("name", m["id"]) for m in models.values())
+            text_lines.append(f"• {p.get('name', p['id'])}: {model_names}")
+        text_lines.append("")
+
+    await interaction.response.send_message(
+        f"**{get_agent_display_name(agent_name)}**\n" + "\n".join(text_lines),
+        view=ProviderSelectView(bridge, agent_name, providers),
+        ephemeral=True,
+    )
+
+
+async def show_model_selection(interaction, agent_name: str, provider_id: str, models: List[Dict[str, Any]], bridge):
+    """Show model selection for a provider."""
+    text_lines = ["Available models:\n"]
+    for m in models:
+        text_lines.append(f"• {m.get('name', m['id'])}")
+    text_lines.append("")
+
+    await interaction.response.send_message(
+        f"**{get_agent_display_name(agent_name)}** — Provider: **{provider_id}**\n" + "\n".join(text_lines),
+        view=ModelSelectView(bridge, agent_name, provider_id, models),
         ephemeral=True,
     )
 

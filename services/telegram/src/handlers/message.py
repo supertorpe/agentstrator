@@ -102,6 +102,13 @@ async def send_message_to_agent(
             raise ValueError(f"Agent URL not found for: {agent}")
         agent_url = f"{agent_url_base}/session/{session_id}/message"
         request_body = {"agent": mode, "parts": [{"type": "text", "text": text}]}
+        chat_id_str = str(chat_id)
+        if chat_id_str in conversation_state:
+            agent_sessions = conversation_state[chat_id_str].get("sessions", {})
+            session_data = agent_sessions.get(agent, {})
+            model = session_data.get("model")
+            if model:
+                request_body["model"] = model
         logger.info(f"Request to {agent}: {request_body}")
         async with httpx.AsyncClient() as client:
             response = await client.post(

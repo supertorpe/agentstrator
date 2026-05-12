@@ -115,19 +115,97 @@ def build_mode_switch_keyboard(current_mode: str, modes: List[Dict[str, Any]] = 
     return InlineKeyboardMarkup(keyboard)
 
 
-def build_session_selection_keyboard(agent: str, mode: str, sessions: List[Dict[str, Any]]) -> InlineKeyboardMarkup:
+def build_session_selection_keyboard(agent: str, mode: str, sessions: List[Dict[str, Any]], model: Optional[str] = None) -> InlineKeyboardMarkup:
     """Build keyboard for session selection."""
     keyboard = []
     keyboard.append([InlineKeyboardButton(f"📱 {get_agent_display_name(agent)}", callback_data="noop")])
 
     for session in sessions:
         label = session.get("title", session.get("id", "Unknown"))
-        callback = store_callback_data({"action": "session", "agent": agent, "mode": mode, "session_id": session["id"]})
+        cb_data = {"action": "session", "agent": agent, "mode": mode, "session_id": session["id"]}
+        if model:
+            cb_data["model"] = model
+        callback = store_callback_data(cb_data)
         keyboard.append([InlineKeyboardButton(label, callback_data=callback)])
 
-    new_cb = store_callback_data({"action": "new_session", "agent": agent, "mode": mode})
+    new_cb_data = {"action": "new_session", "agent": agent, "mode": mode}
+    if model:
+        new_cb_data["model"] = model
+    new_cb = store_callback_data(new_cb_data)
     keyboard.append([InlineKeyboardButton("➕ New Session", callback_data=new_cb)])
     return InlineKeyboardMarkup(keyboard)
+
+
+async def build_provider_keyboard(agent: str) -> tuple[str, InlineKeyboardMarkup]:
+    """Build keyboard for provider selection."""
+    from client import AgentClient
+    providers = await AgentClient.get_agent_providers(agent)
+    keyboard = []
+
+    text_lines = ["Available providers:\n"]
+    for p in providers:
+        models = p.get("models", {})
+        if not models:
+            continue
+        model_names = ", ".join(m.get("name", m["id"]) for m in models.values())
+        text_lines.append(f"• {p.get('name', p['id'])}: {model_names}")
+        text_lines.append("")
+        token = store_callback_data({"action": "select_provider", "agent": agent, "provider": p["id"]})
+        keyboard.append([InlineKeyboardButton(p.get("name", p["id"]), callback_data=token)])
+
+    text = "\n".join(text_lines) if text_lines else "No providers available."
+
+    if not keyboard:
+        modes = await AgentClient.get_agent_modes(agent)
+        return build_mode_keyboard(agent, modes)
+
+    return text, InlineKeyboardMarkup(keyboard)
+
+
+async def build_model_keyboard(agent: str, provider_id: str, switch_mode: bool = False) -> tuple[str, InlineKeyboardMarkup]:
+    """Build keyboard for model selection from a specific provider."""
+    from client import AgentClient
+    providers = await AgentClient.get_agent_providers(agent)
+    provider = next((p for p in providers if p["id"] == provider_id), None)
+    keyboard = []
+
+    text_lines = [f"Models from {provider_id}:\n"]
+    models_list = []
+
+    if provider and provider.get("models"):
+        models_list = list(provider["models"].values())
+        for m in models_list:
+            text_lines.append(f"• {m.get('name', m['id'])}")
+            action = "switchmodel_model" if switch_mode else "select_model"
+            token = store_callback_data({"action": action, "agent": agent, "provider": provider_id, "model": m["id"]})
+            keyboard.append([InlineKeyboardButton(m.get("name", m["id"]), callback_data=token)])
+
+    text = "\n".join(text_lines)
+
+    if not keyboard:
+        text = "No models available for this provider."
+
+    return text, InlineKeyboardMarkup(keyboard)
+
+
+async def build_model_switch_keyboard(agent: str) -> tuple[str, InlineKeyboardMarkup]:
+    """Build keyboard for switching models."""
+    from client import AgentClient
+    providers = await AgentClient.get_agent_providers(agent)
+    if not providers:
+        return "This agent doesn't support model selection.", InlineKeyboardMarkup([])
+
+    text_lines = ["Select a provider:\n"]
+    keyboard = []
+    for p in providers:
+        models = p.get("models", {})
+        if not models:
+            continue
+        text_lines.append(f"• {p.get('name', p['id'])}")
+        token = store_callback_data({"action": "switchmodel_provider", "agent": agent, "provider": p["id"]})
+        keyboard.append([InlineKeyboardButton(p.get("name", p["id"]), callback_data=token)])
+
+    return "\n".join(text_lines), InlineKeyboardMarkup(keyboard)
 
 
 async def build_sessions_keyboard(

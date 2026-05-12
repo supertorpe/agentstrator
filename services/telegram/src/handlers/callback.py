@@ -21,7 +21,7 @@ from handlers.message import save_session_metadata
 logger = logging.getLogger(__name__)
 
 
-async def create_and_join_session(bot, chat_id, message_id, callback_id, agent, mode, conversation_state):
+async def create_and_join_session(bot, chat_id, message_id, callback_id, agent, mode, conversation_state, model=None):
     """Create a new session and join it."""
     await bot.answer_callback_query(callback_id, text=f"Creating session on {agent}...")
 
@@ -47,6 +47,7 @@ async def create_and_join_session(bot, chat_id, message_id, callback_id, agent, 
     conversation_state[chat_id_str]["sessions"][agent] = SessionInfo(
         session_id=session_id,
         mode=mode,
+        model=model,
         title=title,
         last_message_id=None
     ).__dict__
@@ -56,10 +57,11 @@ async def create_and_join_session(bot, chat_id, message_id, callback_id, agent, 
     if folder_name:
         conversation_state[chat_id_str]["sessions"][agent]["folder_name"] = folder_name
 
+    model_info = f" (model: {model})" if model else ""
     await bot.edit_message_text(
         chat_id=chat_id,
         message_id=message_id,
-        text=f"✅ Connected to {get_agent_display_name(agent)} ({mode.capitalize()} mode)\n\nWhat would you like to tell them?"
+        text=f"✅ Connected to {get_agent_display_name(agent)} ({mode.capitalize()} mode{model_info})\n\nWhat would you like to tell them?"
     )
 
 
@@ -91,14 +93,45 @@ async def handle_callback(
         logger.info(f"Selected agent: {agent}")
 
         await bot.answer_callback_query(callback_id)
-
-        # Get agent modes and show mode selection
-        modes = await AgentClient.get_agent_modes(agent)
-        mode_text, mode_keyboard = build_mode_keyboard(agent, modes)
+        from keyboards import build_provider_keyboard
+        provider_text, provider_keyboard = await build_provider_keyboard(agent)
         await bot.edit_message_text(
             chat_id=chat_id,
             message_id=message_id,
-            text=f"Selected: {get_agent_display_name(agent)}\n\n{mode_text}",
+            text=f"Selected: {get_agent_display_name(agent)}\n\n{provider_text}",
+            reply_markup=provider_keyboard
+        )
+        return
+
+    if action == "select_provider":
+        agent = cb["agent"]
+        provider_id = cb["provider"]
+        await bot.answer_callback_query(callback_id)
+        from keyboards import build_model_keyboard
+        model_text, model_keyboard = await build_model_keyboard(agent, provider_id)
+        await bot.edit_message_text(
+            chat_id=chat_id,
+            message_id=message_id,
+            text=f"Provider: {provider_id}\n\n{model_text}",
+            reply_markup=model_keyboard
+        )
+        return
+
+    if action == "select_model":
+        agent = cb["agent"]
+        provider_id = cb["provider"]
+        model_id = cb["model"]
+        model_value = f"{provider_id}/{model_id}"
+
+        modes = await AgentClient.get_agent_modes(agent)
+        from keyboards import build_mode_keyboard
+        mode_text, mode_keyboard = build_mode_keyboard(agent, modes)
+
+        await bot.answer_callback_query(callback_id)
+        await bot.edit_message_text(
+            chat_id=chat_id,
+            message_id=message_id,
+            text=f"Selected: {get_agent_display_name(agent)} (model: {model_value})\n\n{mode_text}",
             reply_markup=mode_keyboard
         )
         return
@@ -106,6 +139,7 @@ async def handle_callback(
     if action == "mode":
         agent = cb["agent"]
         mode = cb["mode"]
+        model = cb.get("model")
 
         await bot.answer_callback_query(callback_id)
 
@@ -139,6 +173,7 @@ async def handle_callback(
             conversation_state[chat_id_str]["sessions"][agent] = SessionInfo(
                 session_id=session_id,
                 mode=mode,
+                model=model,
                 title=title,
                 last_message_id=None
             ).__dict__
@@ -149,10 +184,11 @@ async def handle_callback(
             if folder_name:
                 conversation_state[chat_id_str]["sessions"][agent]["folder_name"] = folder_name
 
+            model_info = f" (model: {model})" if model else ""
             await bot.edit_message_text(
                 chat_id=chat_id,
                 message_id=message_id,
-                text=f"✅ Connected to {get_agent_display_name(agent)} ({mode.capitalize()} mode)\n\nWhat would you like to tell them?"
+                text=f"✅ Connected to {get_agent_display_name(agent)} ({mode.capitalize()} mode{model_info})\n\nWhat would you like to tell them?"
             )
             return
 
@@ -161,7 +197,7 @@ async def handle_callback(
             chat_id=chat_id,
             message_id=message_id,
             text=text,
-            reply_markup=build_session_selection_keyboard(agent, mode, existing_sessions)
+            reply_markup=build_session_selection_keyboard(agent, mode, existing_sessions, model)
         )
         return
 
@@ -196,6 +232,7 @@ async def handle_callback(
         conversation_state[chat_id_str]["sessions"][agent] = SessionInfo(
             session_id=session_id,
             mode=mode,
+            model=cb.get("model"),
             title=title,
             last_message_id=None
         ).__dict__
@@ -217,10 +254,11 @@ async def handle_callback(
     if action == "new_session":
         agent = cb["agent"]
         mode = cb.get("mode")
+        model = cb.get("model")
 
         # If mode is provided, create session directly
         if mode:
-            asyncio.create_task(create_and_join_session(bot, chat_id, message_id, callback_id, agent, mode, conversation_state))
+            asyncio.create_task(create_and_join_session(bot, chat_id, message_id, callback_id, agent, mode, conversation_state, model))
             return
 
         # Otherwise ask for mode
@@ -298,6 +336,50 @@ async def handle_callback(
             chat_id=chat_id,
             message_id=message_id,
             text=f"✅ Mode changed to {new_mode.upper()} for '{title}'\n\nWhat would you like to tell them?"
+        )
+        return
+
+    if action == "switchmodel_provider":
+        agent = cb["agent"]
+        provider_id = cb["provider"]
+        await bot.answer_callback_query(callback_id)
+        from keyboards import build_model_keyboard
+        model_text, model_keyboard = await build_model_keyboard(agent, provider_id, switch_mode=True)
+        await bot.edit_message_text(
+            chat_id=chat_id,
+            message_id=message_id,
+            text=f"Select model from {provider_id}:",
+            reply_markup=model_keyboard
+        )
+        return
+
+    if action == "switchmodel_model":
+        agent = cb["agent"]
+        provider_id = cb["provider"]
+        model_id = cb["model"]
+        model_value = f"{provider_id}/{model_id}"
+
+        chat_id_str = str(chat_id)
+        if chat_id_str not in conversation_state:
+            await bot.answer_callback_query(callback_id, text="No active session")
+            return
+
+        state = conversation_state[chat_id_str]
+        active_agent = state.get("active_agent")
+
+        if not active_agent or active_agent not in state.get("sessions", {}):
+            await bot.answer_callback_query(callback_id, text="No active session")
+            return
+
+        state["sessions"][active_agent]["model"] = model_value
+        session_info = state["sessions"][active_agent]
+        title = session_info.get("title", "Untitled")
+
+        await bot.answer_callback_query(callback_id, text=f"Model set to {model_value}")
+        await bot.edit_message_text(
+            chat_id=chat_id,
+            message_id=message_id,
+            text=f"✅ Model changed to {model_value} for '{title}'\n\nWhat would you like to tell them?"
         )
         return
 
