@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Optional
 
@@ -7,6 +8,7 @@ from discord.ext import commands
 from handlers.commands import setup_commands
 from handlers.interactions import setup_interactions
 from handlers.messages import setup_message_handler
+from sse import SSEManager
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +20,7 @@ class DiscordBridge:
         self.conversation_state = {}
         self.token = bot_token
         self._message_content_enabled = True
+        self.sse_manager = None
 
     def _create_bot(self, message_content: bool = True):
         intents = discord.Intents.all()
@@ -55,6 +58,11 @@ class DiscordBridge:
             except Exception as e:
                 logger.error(f"Failed to sync commands: {e}", exc_info=True)
 
+            self.sse_manager = SSEManager(self)
+            asyncio.create_task(self.sse_manager.start())
+            from handlers.messages import clean_stale_pending_messages
+            asyncio.create_task(clean_stale_pending_messages())
+
         try:
             await self.bot.start(self.token)
         except discord.errors.PrivilegedIntentsRequired:
@@ -74,6 +82,11 @@ class DiscordBridge:
                         logger.info(f"Synced {len(synced)} slash commands")
                     except Exception as e:
                         logger.error(f"Failed to sync: {e}", exc_info=True)
+
+                    self.sse_manager = SSEManager(self)
+                    asyncio.create_task(self.sse_manager.start())
+                    from handlers.messages import clean_stale_pending_messages
+                    asyncio.create_task(clean_stale_pending_messages())
 
                 await self.bot.start(self.token)
             else:
