@@ -27,6 +27,19 @@ def get_pending_message(agent_name: str) -> Optional[Dict[str, Any]]:
     return entry
 
 
+async def clean_stale_pending_messages():
+    """Remove pending messages older than 5 minutes."""
+    while True:
+        try:
+            now = time.time()
+            stale = [k for k, v in _pending_messages.items() if now - v.get("timestamp", 0) > 300]
+            for k in stale:
+                _pending_messages.pop(k, None)
+        except Exception as e:
+            logger.error(f"Error cleaning pending messages: {e}")
+        await asyncio.sleep(60)
+
+
 def save_session_metadata(session_id: str, agent: str, title: str, mode: str, created_at: str = None) -> str:
     """Save session metadata. Returns session_id for compatibility."""
     save_metadata(session_id, agent, title, mode)

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import time
 from typing import Any, Dict, Optional
@@ -21,6 +22,19 @@ def get_pending_message(agent_name: str) -> Optional[Dict[str, Any]]:
         _pending_messages.pop(agent_name, None)
         return None
     return entry
+
+
+async def clean_stale_pending_messages():
+    """Remove pending messages older than 5 minutes."""
+    while True:
+        try:
+            now = time.time()
+            stale = [k for k, v in _pending_messages.items() if now - v.get("timestamp", 0) > 300]
+            for k in stale:
+                _pending_messages.pop(k, None)
+        except Exception as e:
+            logger.error(f"Error cleaning pending messages: {e}")
+        await asyncio.sleep(60)
 
 
 def setup_message_handler(bridge):
