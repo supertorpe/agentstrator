@@ -1,4 +1,6 @@
 import logging
+import time
+from typing import Any, Dict, Optional
 
 import discord
 
@@ -9,6 +11,16 @@ from buttons import _get_state_key
 from session_log import log_conversation, save_metadata
 
 logger = logging.getLogger(__name__)
+
+_pending_messages: Dict[str, Dict[str, Any]] = {}
+
+
+def get_pending_message(agent_name: str) -> Optional[Dict[str, Any]]:
+    entry = _pending_messages.get(agent_name)
+    if entry and time.time() - entry.get("timestamp", 0) > 300:
+        _pending_messages.pop(agent_name, None)
+        return None
+    return entry
 
 
 def setup_message_handler(bridge):
@@ -104,6 +116,12 @@ def setup_message_handler(bridge):
         """Send message to agent and respond."""
         log_conversation(session_info.session_id, "SEND", text, session_info.mode)
 
+        _pending_messages[agent_name] = {
+            "chat_id": key,
+            "session_id": session_info.session_id,
+            "timestamp": time.time(),
+        }
+
         try:
             response = await AgentClient.send_message(
                 agent_name,
@@ -145,6 +163,8 @@ def setup_message_handler(bridge):
         except Exception as e:
             logger.error(f"Error sending message to agent: {e}", exc_info=True)
             await message.channel.send("Error communicating with agent.")
+        finally:
+            _pending_messages.pop(agent_name, None)
 
     def _is_allowed(message: discord.Message, allowed_users: set | None) -> bool:
         """Check if the user is allowed."""

@@ -1,7 +1,9 @@
 import asyncio
 import logging
+import time
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, Optional
 
 import httpx
 from telegram import Bot
@@ -13,6 +15,16 @@ from config import get_agent_url, SESSIONS_DIR
 from session_log import log_conversation, save_metadata, list_sessions, update_title
 
 logger = logging.getLogger(__name__)
+
+_pending_messages: Dict[str, Dict[str, Any]] = {}
+
+
+def get_pending_message(agent_name: str) -> Optional[Dict[str, Any]]:
+    entry = _pending_messages.get(agent_name)
+    if entry and time.time() - entry.get("timestamp", 0) > 300:
+        _pending_messages.pop(agent_name, None)
+        return None
+    return entry
 
 
 def save_session_metadata(session_id: str, agent: str, title: str, mode: str, created_at: str = None) -> str:
@@ -95,6 +107,12 @@ async def send_message_to_agent(
 
     # Log sent message with mode
     log_to_file(session_id, "SEND", text, mode, folder_name)
+
+    _pending_messages[agent] = {
+        "chat_id": str(chat_id),
+        "session_id": session_id,
+        "timestamp": time.time(),
+    }
 
     async def send_request():
         agent_url_base = await get_agent_url(agent)
@@ -199,6 +217,8 @@ async def send_message_to_agent(
             asyncio.create_task(
                 bot.send_message(chat_id=chat_id, text=f"[{get_agent_display_name(agent)}] Error: {e}")
             )
+        finally:
+            _pending_messages.pop(agent, None)
 
     task = asyncio.create_task(send_request())
 
