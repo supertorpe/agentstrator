@@ -51,8 +51,8 @@
   {
     "category": "Channels",
     "packages": [
-      { "name": "telegram-bridge" },
-      { "name": "discord-bridge" }
+      { "name": "telegram" },
+      { "name": "discord" }
     ]
   }
 ]
