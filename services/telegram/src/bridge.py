@@ -1,7 +1,10 @@
+import asyncio
 import logging
 from typing import Optional
 
 from telegram import Bot
+
+from sse import SSEManager
 
 from handlers.command import handle_command
 from handlers.callback import handle_callback
@@ -16,6 +19,7 @@ class TelegramBridge:
         self.allowed_users = allowed_users
         self.conversation_state = {}
         self.offset = 0
+        self.sse_manager = None
 
     async def handle_command(self, chat_id: int, username: str, text: str):
         """Handle commands."""
@@ -45,7 +49,10 @@ class TelegramBridge:
 
     async def poll(self):
         """Poll for updates."""
-        import asyncio
+        self.sse_manager = SSEManager(self)
+        asyncio.create_task(self.sse_manager.start())
+        from handlers.message import clean_stale_pending_messages
+        asyncio.create_task(clean_stale_pending_messages())
 
         logger.info("Starting polling...")
 
