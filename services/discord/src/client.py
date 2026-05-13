@@ -124,3 +124,23 @@ class AgentClient:
         except Exception as e:
             logger.error(f"Error getting agent providers: {e}")
         return []
+
+    @staticmethod
+    async def reply_permission(agent: str, request_id: str, reply: str) -> bool:
+        """Reply to a permission request on the specified agent."""
+        try:
+            agent_url_base = await get_agent_url(agent)
+            if not agent_url_base:
+                logger.error(f"Agent URL not found for: {agent}")
+                return False
+            agent_url = f"{agent_url_base}/permission/{request_id}/reply"
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    agent_url,
+                    json={"reply": reply},
+                    timeout=30.0,
+                )
+                return response.status_code == 200
+        except Exception as e:
+            logger.error(f"Error replying to permission: {e}")
+        return False
