@@ -39,11 +39,14 @@ class SSEManager:
                 agents = await get_all_agents()
                 current_names = {a["name"] for a in agents}
 
+                logger.info(f"SSE sync: found {len(agents)} agents: {current_names}")
+
                 for agent in agents:
                     name = agent["name"]
                     if name not in self._connections:
                         url = agent.get("url")
                         if url:
+                            logger.info(f"SSE: connecting to agent {name} at {url}/event")
                             self._agent_urls[name] = url
                             self._reconnect_delays[name] = 1.0
                             task = asyncio.create_task(self._listen(name, url))
@@ -51,6 +54,7 @@ class SSEManager:
 
                 for name in list(self._connections.keys()):
                     if name not in current_names:
+                        logger.info(f"SSE: disconnecting from agent {name}")
                         self._connections[name].cancel()
                         del self._connections[name]
                         self._agent_urls.pop(name, None)
@@ -66,14 +70,17 @@ class SSEManager:
         while self._running:
             try:
                 sse_url = f"{url}/event"
+                logger.info(f"SSE: connecting to {agent_name} at {sse_url}")
                 async with httpx.AsyncClient(timeout=None) as client:
                     async with client.stream("GET", sse_url) as response:
+                        logger.info(f"SSE: connected to {agent_name}, status={response.status_code}")
                         self._reconnect_delays[agent_name] = 1.0
                         current_event: Dict[str, str] = {}
                         async for line in response.aiter_lines():
                             line = line.strip()
                             if not line:
                                 if current_event:
+                                    logger.info(f"SSE: received event from {agent_name}: {current_event.get('event')}")
                                     await self._process_event(agent_name, current_event)
                                     current_event = {}
                             elif line.startswith("event:"):
@@ -92,7 +99,6 @@ class SSEManager:
 
     async def _process_event(self, agent_name: str, event: dict):
         """Route an SSE event to the appropriate handler."""
-        event_type = event.get("event")
         data_raw = event.get("data", "{}")
 
         try:
@@ -101,18 +107,26 @@ class SSEManager:
             logger.error(f"Invalid SSE data from {agent_name}: {data_raw}")
             return
 
+        event_type = data.get("type") or event.get("event")
+        logger.info(f"SSE: processing event type={event_type} from {agent_name}")
+
         if event_type == "permission.asked":
             await self._handle_permission_asked(agent_name, data)
+        elif event_type and event_type not in ("server.connected",):
+            logger.info(f"SSE: unhandled event type {event_type} from {agent_name}")
 
     async def _handle_permission_asked(self, agent_name: str, data: dict):
         """Handle a permission.asked event."""
-        request_id = data.get("requestID")
-        permission = data.get("permission", "unknown")
-        patterns = data.get("patterns", [])
+        props = data.get("properties", data)
+        request_id = props.get("id")
+        permission = props.get("permission", "unknown")
+        patterns = props.get("patterns", [])
         patterns_str = ", ".join(patterns) if patterns else "(no path)"
 
+        logger.info(f"SSE: permission.asked from {agent_name}: id={request_id}, permission={permission}, patterns={patterns_str}")
+
         if not request_id:
-            logger.error(f"permission.asked missing requestID from {agent_name}")
+            logger.error(f"permission.asked missing id from {agent_name}, data={json.dumps(data)}")
             return
 
         from handlers.messages import get_pending_message
@@ -124,14 +138,18 @@ class SSEManager:
             chat_key = pending["chat_id"]
             state = self.bridge.conversation_state.get(chat_key)
             is_active = state and state.active_agent == agent_name
+            logger.info(f"SSE: found pending message for {agent_name}, chat_key={chat_key}, is_active={is_active}")
             await show_permission_prompt(
                 self.bridge, chat_key, agent_name,
                 request_id, permission, patterns_str, is_active,
             )
         else:
+            logger.info(f"SSE: no pending message for {agent_name}, searching active chats")
             for chat_key, state in self.bridge.conversation_state.items():
                 if state.active_agent == agent_name:
+                    logger.info(f"SSE: found active chat {chat_key} for {agent_name}")
                     await show_permission_prompt(
                         self.bridge, chat_key, agent_name,
                         request_id, permission, patterns_str, True,
                     )
+                    break
