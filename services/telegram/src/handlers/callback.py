@@ -424,4 +424,20 @@ async def handle_callback(
         )
         return
 
+    if action == "permission_reply":
+        agent = cb["agent"]
+        request_id = cb["request_id"]
+        reply = cb["reply"]
+        success = await AgentClient.reply_permission(agent, request_id, reply)
+        labels = {"once": "allowed once", "always": "always allowed", "reject": "denied"}
+        msg = f"\U00002705 {labels.get(reply, reply)}" if success else "\U0000274C Failed to respond"
+        await bot.answer_callback_query(callback_id, text=msg)
+        if success:
+            await bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=message_id,
+                text=msg,
+            )
+        return
+
     await bot.answer_callback_query(callback_id)
