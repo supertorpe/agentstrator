@@ -158,11 +158,17 @@ All communication goes through the registry, so the bridges work in both single-
 1. **Create a Discord Application:**
    - Go to the [Discord Developer Portal](https://discord.com/developers/applications)
    - Click "New Application" and give it a name
+   - Go to the "Installation" section in the left sidebar
+   - Select "None" in "Install Link" dropdown
+   - Click "Save changes"
    - Go to the "Bot" section in the left sidebar
-   - Click "Add Bot" and copy the token
+   - Uncheck "Public Bot"
+   - Check "Presence Intent", "Server Members Intent" and "Message Content Intent"
+   - Click "Reset Token" and copy the token generated into a safe place
+   - Click "Save changes"
 
 2. **Invite the bot to your server:**
-   - Go to "OAuth2" → "URL Generator"
+   - Go to "OAuth2" section in the left sidebar → "URL Generator"
    - Select scopes: `bot`, `applications.commands`
    - Select bot permissions:
      - **Text Permissions**: `Send Messages`, `Send Messages in Threads`, `Read Message History`, `Embed Links`, `Attach Files`
