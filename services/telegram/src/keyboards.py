@@ -142,24 +142,18 @@ async def build_provider_keyboard(agent: str) -> tuple[str, InlineKeyboardMarkup
     providers = await AgentClient.get_agent_providers(agent)
     keyboard = []
 
-    text_lines = ["Available providers:\n"]
     for p in providers:
         models = p.get("models", {})
         if not models:
             continue
-        model_names = ", ".join(m.get("name", m["id"]) for m in models.values())
-        text_lines.append(f"• {p.get('name', p['id'])}: {model_names}")
-        text_lines.append("")
         token = store_callback_data({"action": "select_provider", "agent": agent, "provider": p["id"]})
         keyboard.append([InlineKeyboardButton(p.get("name", p["id"]), callback_data=token)])
-
-    text = "\n".join(text_lines) if text_lines else "No providers available."
 
     if not keyboard:
         modes = await AgentClient.get_agent_modes(agent)
         return build_mode_keyboard(agent, modes)
 
-    return text, InlineKeyboardMarkup(keyboard)
+    return "Select a provider:", InlineKeyboardMarkup(keyboard)
 
 
 async def build_model_keyboard(agent: str, provider_id: str, switch_mode: bool = False) -> tuple[str, InlineKeyboardMarkup]:
@@ -169,23 +163,16 @@ async def build_model_keyboard(agent: str, provider_id: str, switch_mode: bool =
     provider = next((p for p in providers if p["id"] == provider_id), None)
     keyboard = []
 
-    text_lines = [f"Models from {provider_id}:\n"]
-    models_list = []
-
     if provider and provider.get("models"):
-        models_list = list(provider["models"].values())
-        for m in models_list:
-            text_lines.append(f"• {m.get('name', m['id'])}")
+        for m in list(provider["models"].values()):
             action = "switchmodel_model" if switch_mode else "select_model"
             token = store_callback_data({"action": action, "agent": agent, "provider": provider_id, "model": m["id"]})
             keyboard.append([InlineKeyboardButton(m.get("name", m["id"]), callback_data=token)])
 
-    text = "\n".join(text_lines)
-
     if not keyboard:
-        text = "No models available for this provider."
+        return "No models available for this provider.", InlineKeyboardMarkup([])
 
-    return text, InlineKeyboardMarkup(keyboard)
+    return "Select a model:", InlineKeyboardMarkup(keyboard)
 
 
 async def build_model_switch_keyboard(agent: str) -> tuple[str, InlineKeyboardMarkup]:
