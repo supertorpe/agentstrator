@@ -1,7 +1,10 @@
+import os
+
 import asyncio
 import logging
 from typing import Optional
 
+import aiohttp
 import discord
 from discord.ext import commands
 
@@ -34,7 +37,20 @@ class DiscordBridge:
         intents.voice_states = False
         intents.webhooks = False
         intents.presences = False
-        bot = commands.Bot(command_prefix="!", intents=intents)
+        bot = commands.Bot(
+            command_prefix="!",
+            intents=intents,
+        )
+        proxy = (
+            os.getenv("HTTPS_PROXY")
+            or os.getenv("https_proxy")
+            or os.getenv("HTTP_PROXY")
+            or os.getenv("http_proxy")
+        )
+        if proxy:
+            bot.http.proxy = proxy
+            bot.http.proxy_auth = None
+
         logger.info(f"Created commands.Bot with intents")
         return bot
 
