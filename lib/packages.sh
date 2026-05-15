@@ -360,6 +360,9 @@ rebuild_packages() {
     echo "Rebuilding runtime image (--no-cache)..."
     "$AGENTSTRATOR_INSTALL_DIR/lib/build-runtime.sh" build --no-cache
 
+    # Rebuild services image
+    services_build
+
     echo ""
     echo "Rebuild complete: $success/$total succeeded, $failed failed."
 }
