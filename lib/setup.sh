@@ -885,9 +885,9 @@ apply_changes() {
         done
     fi
 
-    if [ "$registry_mode_value" = "local" ] || [ "$registry_mode_value" = "remote" ]; then
+    if [ "$registry_mode_value" = "local" ]; then
         local was_registry_installed
-        was_registry_installed=$(is_service_installed "registry")
+        was_registry_installed=$(is_service_installed "registry" "$previous_config")
         if [ "$was_registry_installed" = "false" ]; then
             if [ "$phase" = "update_config" ]; then
                 :  # Skip install during config phase
