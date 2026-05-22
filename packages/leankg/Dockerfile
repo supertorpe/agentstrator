@@ -3,9 +3,20 @@ FROM agentstrator-core
 RUN find / -xdev -type f | sort > /before-files.txt
 RUN find / -xdev -type l | sort > /before-symlinks.txt
 
-RUN LEANKG_VERSION=$(curl -fsSL https://api.github.com/repos/FreePeak/LeanKG/releases/latest | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'].lstrip('v'))") && \
-    curl -fsSL "https://github.com/FreePeak/LeanKG/releases/download/v${LEANKG_VERSION}/leankg-linux-x64.tar.gz" | \
-    tar xz -C /usr/local/bin leankg && \
+RUN LEANKG_VERSION="$(curl --retry 10 \
+    --retry-delay 5 \
+    --retry-all-errors \
+    --connect-timeout 10 \
+    --max-time 60 \
+    -fsSL https://api.github.com/repos/FreePeak/LeanKG/releases/latest \
+    | jq -r '.tag_name | ltrimstr("v")')" && \
+    curl --retry 10 \
+         --retry-delay 5 \
+         --retry-all-errors \
+         --connect-timeout 10 \
+         --max-time 120 \
+         -fsSL "https://github.com/FreePeak/LeanKG/releases/download/v${LEANKG_VERSION}/leankg-linux-x64.tar.gz" \
+    | tar xz -C /usr/local/bin leankg && \
     chmod +x /usr/local/bin/leankg
 
 RUN find / -xdev -type f | sort > /after-files.txt
