@@ -1,0 +1,5 @@
+NAME=ijfw
+DESCRIPTION=Memory, routing, audits, workflow
+SOURCE=https://gitlab.com/therealseandonahoe/ijfw
+PORT=37892
+RUN=setsid /usr/local/bin/ijfw dashboard start >/dev/null 2>&1 & setsid socat TCP-LISTEN:37892,fork,bind=0.0.0.0 TCP:127.0.0.1:37891 >/dev/null 2>&1 &

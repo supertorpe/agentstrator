@@ -85,6 +85,7 @@ Agentstrator packages install inside the Docker image, not on the host. They're 
 | [`continues`](https://github.com/yigitkonur/cli-continues)       | Resume coding sessions                             |
 | [`superpowers`](https://github.com/obra/superpowers)     | Complete software development methodology          |
 | [`oh-my-openagent`](https://github.com/code-yeongyu/oh-my-openagent) | Advanced orchestration with workflow automation    |
+| [`ijfw`](https://gitlab.com/therealseandonahoe/ijfw)       | Memory, routing, audits, workflow                   |
 | [`gentle-ai`](https://github.com/Gentleman-Programming/gentle-ai)       | SDD workflow, memory, and skills                   |
 | [`nwave`](https://github.com/nWave-ai/nWave)           | AI agents that guide you from idea to working code |
 | [`openspec`](https://github.com/Fission-AI/OpenSpec)        | Spec-driven development                            |
