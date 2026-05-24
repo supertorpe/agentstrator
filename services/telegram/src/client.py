@@ -80,7 +80,8 @@ class AgentClient:
         agent_url = f"{agent_url_base}/session/{session_id}/message"
         body = {"agent": mode, "parts": [{"type": "text", "text": text}]}
         if model:
-            body["model"] = model
+            parts = model.split("/", 1)
+            body["model"] = {"providerID": parts[0], "modelID": parts[1]} if len(parts) == 2 else model
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 agent_url,

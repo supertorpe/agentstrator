@@ -344,18 +344,9 @@ async def build_sessions_embed(conversation_state: dict, user_id: str) -> discor
 
 async def show_mode_selection(interaction, agent_name: str, modes: List[Dict[str, Any]], bridge, model: Optional[str] = None):
     """Show mode selection for an agent, optionally with a pre-selected model."""
-    text_lines = ["Available modes:\n"]
-    for mode in modes:
-        mode_name = mode.get("name", "")
-        mode_desc = mode.get("description", "")
-        text_lines.append(f"• {mode_name}")
-        if mode_desc:
-            text_lines.append(f"  {mode_desc}")
-        text_lines.append("")
-
     model_info = f" (model: {model})" if model else ""
     await interaction.followup.send(
-        f"**{get_agent_display_name(agent_name)}**{model_info}\n" + "\n".join(text_lines),
+        f"**{get_agent_display_name(agent_name)}**{model_info}",
         view=ModeSelectView(bridge, agent_name, modes, model),
         ephemeral=True,
     )

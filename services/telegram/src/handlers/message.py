@@ -139,7 +139,8 @@ async def send_message_to_agent(
             session_data = agent_sessions.get(agent, {})
             model = session_data.get("model")
             if model:
-                request_body["model"] = model
+                parts = model.split("/", 1)
+                request_body["model"] = {"providerID": parts[0], "modelID": parts[1]} if len(parts) == 2 else model
         logger.info(f"Request to {agent}: {request_body}")
         async with httpx.AsyncClient() as client:
             response = await client.post(

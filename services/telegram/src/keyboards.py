@@ -70,7 +70,7 @@ def build_agent_selection_keyboard(agents: List[Dict[str, Any]] = None) -> Inlin
     return InlineKeyboardMarkup(keyboard)
 
 
-def build_mode_keyboard(agent: str, modes: List[Dict[str, Any]] = None) -> tuple[str, InlineKeyboardMarkup]:
+def build_mode_keyboard(agent: str, modes: List[Dict[str, Any]] = None, model: Optional[str] = None) -> tuple[str, InlineKeyboardMarkup]:
     """Build keyboard for mode selection."""
     keyboard = []
     if modes is None:
@@ -91,7 +91,10 @@ def build_mode_keyboard(agent: str, modes: List[Dict[str, Any]] = None) -> tuple
     # Build keyboard with short tokens
     for mode in modes:
         mode_name = mode.get("name", "")
-        token = store_callback_data({"action": "mode", "agent": agent, "mode": mode_name})
+        cb_data = {"action": "mode", "agent": agent, "mode": mode_name}
+        if model:
+            cb_data["model"] = model
+        token = store_callback_data(cb_data)
         keyboard.append([InlineKeyboardButton(mode_name, callback_data=token)])
 
     return text, InlineKeyboardMarkup(keyboard)

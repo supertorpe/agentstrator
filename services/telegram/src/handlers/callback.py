@@ -125,7 +125,7 @@ async def handle_callback(
 
         modes = await AgentClient.get_agent_modes(agent)
         from keyboards import build_mode_keyboard
-        mode_text, mode_keyboard = build_mode_keyboard(agent, modes)
+        mode_text, mode_keyboard = build_mode_keyboard(agent, modes, model_value)
 
         await bot.answer_callback_query(callback_id)
         await bot.edit_message_text(
@@ -264,7 +264,7 @@ async def handle_callback(
         # Otherwise ask for mode
         await bot.answer_callback_query(callback_id)
         modes = await AgentClient.get_agent_modes(agent)
-        mode_text, mode_keyboard = build_mode_keyboard(agent, modes)
+        mode_text, mode_keyboard = build_mode_keyboard(agent, modes, model)
         await bot.edit_message_text(
             chat_id=chat_id,
             message_id=message_id,
