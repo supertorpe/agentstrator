@@ -7,7 +7,7 @@ ENV_FILE="$CONFIG_DIR/.env"
 
 echo "Uninstalling Registry service..."
 
-docker stop agentstrator-registry 2>/dev/null || true
-docker rm agentstrator-registry 2>/dev/null || true
+services_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/services"
+docker compose -p agentstrator-registry -f "$services_dir/docker-compose.registry.yml" --env-file "$ENV_FILE" down 2>/dev/null || true
 
 echo "Registry service uninstalled."

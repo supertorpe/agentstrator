@@ -8,6 +8,9 @@ ENV_FILE="$CONFIG_DIR/.env"
 echo "=== Discord Bridge Uninstall ==="
 echo ""
 
+services_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/services"
+docker compose -p agentstrator-discord -f "$services_dir/docker-compose.discord.yml" --env-file "$ENV_FILE" down 2>/dev/null || true
+
 if [ -f "$ENV_FILE" ]; then
     if grep -q "^DISCORD_BOT_TOKEN=" "$ENV_FILE" 2>/dev/null; then
         echo "Removing DISCORD_BOT_TOKEN from $ENV_FILE..."

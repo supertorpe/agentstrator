@@ -1168,6 +1168,11 @@ uninstall_agentstrator() {
         done
     fi
 
+    # Clean up any stale docker compose project state before removing network
+    for project in agentstrator-registry agentstrator-discord agentstrator-telegram; do
+        docker compose -p "$project" down --remove-orphans 2>/dev/null || true
+    done
+
     if docker network inspect agentstrator-net &>/dev/null; then
         echo "Removing docker network agentstrator-net..."
         docker network rm agentstrator-net 2>/dev/null || true

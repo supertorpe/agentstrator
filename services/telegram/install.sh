@@ -101,6 +101,7 @@ fi
 ensure_network
 
 echo "Starting telegram-bridge service..."
+docker compose -p agentstrator-telegram -f "$services_dir/docker-compose.telegram.yml" --env-file "$ENV_FILE" down --remove-orphans 2>/dev/null || true
 docker compose -p agentstrator-telegram -f "$services_dir/docker-compose.telegram.yml" --env-file "$ENV_FILE" up -d telegram-bridge
 
 echo ""

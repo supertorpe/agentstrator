@@ -101,6 +101,7 @@ fi
 ensure_network
 
 echo "Starting discord-bridge service..."
+docker compose -p agentstrator-discord -f "$services_dir/docker-compose.discord.yml" --env-file "$ENV_FILE" down --remove-orphans 2>/dev/null || true
 docker compose -p agentstrator-discord -f "$services_dir/docker-compose.discord.yml" --env-file "$ENV_FILE" up -d discord-bridge
 
 echo ""
