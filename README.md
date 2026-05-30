@@ -89,6 +89,7 @@ Agentstrator packages install inside the Docker image, not on the host. They're 
 | [`gentle-ai`](https://github.com/Gentleman-Programming/gentle-ai)       | SDD workflow, memory, and skills                   |
 | [`nwave`](https://github.com/nWave-ai/nWave)           | AI agents that guide you from idea to working code |
 | [`openspec`](https://github.com/Fission-AI/OpenSpec)        | Spec-driven development                            |
+| [`power-pack`](https://github.com/waybarrios/opencode-power-pack) | 11 skills: code-review, security-review... |
 | [`bmalph`](https://github.com/LarsCowe/bmalph)          | BMAD-METHOD with Ralph                             |
 | [`agent-skills`](https://github.com/addyosmani/agent-skills)    | Engineering skills and workflows                   |
 
